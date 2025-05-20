@@ -287,3 +287,17 @@ def create_hydrant_station_map():
 #         ).add_to(m)
 
 #     return m._repr_html_()
+
+
+weights = {
+                "건물연차점수": 25,
+                "지상층수_점수": 9,
+                "지하층수_점수": 11,
+                "비상용승강기_점수": 5,
+                "주용도_점수": 20,
+                "구조코드_점수": 15,
+                "소화전거리_점수": 5,
+                "소방관서거리_점수": 10
+            }
+            # ✅ total_score 계산
+df["total_score"] = sum(df[col] * weight for col, weight in weights.items())

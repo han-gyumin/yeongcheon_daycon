@@ -466,15 +466,38 @@ with ui.nav_panel(title="결론"):
 
                 # ✅ 1. GeoJSON 불러오기
                 gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+                
+                
 
                 # ✅ 2. df에서 읍면동별 평균 total_score 집계
+                weights = {
+                    "건물연차점수": 25,
+                    "지상층수_점수": 9,
+                    "지하층수_점수": 11,
+                    "비상용승강기_점수": 5,
+                    "주용도_점수": 20,
+                    "구조코드_점수": 15,
+                    "소화전거리_점수": 5,
+                    "소방관서거리_점수": 10
+                }
+
+                # ✅ total_score 계산
+                df["total_score"] = sum(df[col] * weight for col, weight in weights.items())
+                
                 df_score = df[df["읍면동"].isin(selected)].copy()
+
                 df_score_grouped = df_score.groupby("읍면동")["total_score"].mean().reset_index()
 
                 # ✅ 3. 컬럼 이름 맞추고 병합
                 df_score_grouped = df_score_grouped.rename(columns={"읍면동": "EMD_KOR_NM", "total_score": "평균위험도"})
+                
                 gdf = gdf.merge(df_score_grouped, on="EMD_KOR_NM", how="left")
                 gdf["평균위험도"] = gdf["평균위험도"].fillna(0)
+                
+                # ✅ 동적으로 색상 구간 계산
+                min_score = gdf["평균위험도"].min()
+                max_score = gdf["평균위험도"].max()
+                step = (max_score - min_score) / 5 if max_score != min_score else 1  # 분모 0 방지
 
                 # ✅ 4. 지도 생성
                 center = gdf.geometry.unary_union.centroid
@@ -482,13 +505,13 @@ with ui.nav_panel(title="결론"):
 
                 # ✅ 5. 위험도 색상 매핑 함수 정의
                 def get_score_color(score):
-                    if score >= 23.5:
+                    if score >= min_score + step * 4:
                         return "#d73027"  # 빨강
-                    elif score >= 23:
+                    elif score >= min_score + step * 3:
                         return "#fc8d59"  # 주황
-                    elif score >= 22.5:
+                    elif score >= min_score + step * 2:
                         return "#fee08b"  # 노랑
-                    elif score >= 22:
+                    elif score >= min_score + step * 1:
                         return "#d9ef8b"  # 연두
                     else:
                         return "#91cf60"  # 초록
@@ -498,11 +521,11 @@ with ui.nav_panel(title="결론"):
                     gdf,
                     name="위험도 시각화",
                     style_function=lambda feature: {
-                        "fillColor": get_score_color(feature["properties"].get("평균위험도", 0)),
-                        "color": "black",
-                        "weight": 1,
-                        "fillOpacity": 0.6,
-                    },
+                    "fillColor": get_score_color(feature["properties"].get("평균위험도", 0)),
+                    "color": "black",
+                    "weight": 1,
+                    "fillOpacity": 0.6,
+                },
                     tooltip=folium.GeoJsonTooltip(
                         fields=["EMD_KOR_NM", "평균위험도"],
                         aliases=["읍면동", "평균 위험 점수"],

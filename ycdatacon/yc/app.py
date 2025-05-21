@@ -127,7 +127,7 @@ def app_ui(request):
             "위험스코어",
             ui.layout_sidebar(
             ui.sidebar(
-                ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=region_list),
+                ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=["금호읍"]),
                 title="필터 설정"
             ),
             ui.layout_columns(
@@ -242,16 +242,16 @@ def app_ui(request):
                 ui.card_header("⚙️ 사용자 정의 가중치 기반 위험도 지도"),
 
                 ui.layout_columns(
-                    ui.input_slider("w0", "① 건물연차 점수", min=0, max=25, value=1),
-                    ui.input_slider("w1", "② 지상층수", min=0, max=25, value=1),
-                    ui.input_slider("w2", "③ 지하층수", min=0, max=25, value=1),
-                    ui.input_slider("w3", "④ 비상용 승강기", min=0, max=25, value=1),
+                    ui.input_slider("w0", "① 건물연차 점수", min=0, max=25, value=25),
+                    ui.input_slider("w1", "② 지상층수", min=0, max=25, value=9),
+                    ui.input_slider("w2", "③ 지하층수", min=0, max=25, value=11),
+                    ui.input_slider("w3", "④ 비상용 승강기", min=0, max=25, value=5),
                 ),
                 ui.layout_columns(
-                    ui.input_slider("w4", "⑤ 주용도", min=0, max=25, value=1),
-                    ui.input_slider("w5", "⑥ 구조 재료", min=0, max=25, value=1),
-                    ui.input_slider("w6", "⑦ 소화전 거리", min=0, max=25, value=1),
-                    ui.input_slider("w7", "⑧ 소방관서 거리", min=0, max=25, value=1),
+                    ui.input_slider("w4", "⑤ 주용도", min=0, max=25, value=20),
+                    ui.input_slider("w5", "⑥ 구조 재질", min=0, max=25, value=15),
+                    ui.input_slider("w6", "⑦ 소화전 거리", min=0, max=25, value=5),
+                    ui.input_slider("w7", "⑧ 소방관서 거리", min=0, max=25, value=10),
                 ),
                 
                 ui.layout_columns(
@@ -546,7 +546,7 @@ def server(input, output, session):
         step = (max_score - min_score) / 5 if max_score != min_score else 1
 
         center = gdf.geometry.unary_union.centroid
-        m = folium.Map(location=[center.y, center.x], zoom_start=11)
+        m = folium.Map(location=[center.y, center.x], zoom_start=10)
 
         def get_score_color(score):
             if score >= min_score + step * 4: return "#d73027"
@@ -577,7 +577,7 @@ def server(input, output, session):
     @render.ui
     def show_population_map():
         selected = input.region()
-        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/old.geojson")
+        gdf = gpd.read_file("old.geojson")
         df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/영천인구.csv")
         df_pop = df_pop.rename(columns={"읍면동": "EMD_KOR_NM"})
         df_pop = df_pop[df_pop["EMD_KOR_NM"] != "합계"]
@@ -595,11 +595,14 @@ def server(input, output, session):
             gdf,
             name="고령인구 비율 시각화",
             style_function=lambda feature: {
-                'fillColor': '#%02x%02x%02x' % (
-                    255,
-                    255 - int(feature['properties'].get('고령인구비율(%)', 0) / max(gdf["고령인구비율(%)"].max(), 1) * 255),
-                    150
+                'fillColor': (
+                    "#BB0C0C" if feature['properties'].get('고령인구비율(%)', 0) >= 40 else
+                    '#BD0026' if feature['properties'].get('고령인구비율(%)', 0) >= 30 else
+                    "#F57E00" if feature['properties'].get('고령인구비율(%)', 0) >= 20 else
+                    "#E1D604" if feature['properties'].get('고령인구비율(%)', 0) >= 10 else
+                    "#EDD1C1"
                 ),
+
                 'color': 'black',
                 'weight': 1,
                 'fillOpacity': 0.7,
@@ -701,36 +704,33 @@ def server(input, output, session):
     @render.data_frame
     def show_variable_table():
         df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/variable.csv", encoding="euc-kr")
-        return df
+        return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
     @render.data_frame
     def show_data_table():
         df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/data.csv")
-        return df
+        return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
     @render.data_frame
     def show_score_table():
         df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/score.csv", encoding="euc-kr")
-        return df
+        return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
     @render.data_frame
     def show_weight_table():
         df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/weight.csv")
-        return df
+        return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     
     # 🔹 사용자 정의 가중치 기반 지도
     @output
     @render.ui
     def show_score_map2():
-        # 📌 region 입력이 없을 경우 전체 사용
-        try:
-            selected = input.region()
-        except Exception:
-            selected = df["읍면동"].unique().tolist()
+        
+        selected = ['동부동', '중앙동', '서부동', '남부동', '완산동', '금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면', '고경면', '북안면', '대창면']
 
         # ✅ 가중치 가져오기
         w = [input.w0(), input.w1(), input.w2(), input.w3(),
@@ -896,7 +896,7 @@ def server(input, output, session):
 
         # ✅ 지도 중심 계산
         center = gdf.geometry.unary_union.centroid
-        m = folium.Map(location=[center.y, center.x], zoom_start=11)
+        m = folium.Map(location=[center.y, center.x], zoom_start=10)
 
         # ✅ GeoJSON 시각화
         folium.GeoJson(
@@ -982,7 +982,8 @@ def server(input, output, session):
     @output
     @render.ui
     def show_score_map3():
-        selected = input.region()
+        selected = ['금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면', '고경면',
+       '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
         gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
 
         # ✅ df 대신 df_fake 사용

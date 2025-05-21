@@ -1,4 +1,8 @@
-faicons
 shiny
-seaborn
 pandas
+numpy
+matplotlib
+seaborn
+folium
+plotly
+geopandas

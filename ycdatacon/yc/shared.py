@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from pathlib import Path
 
 import pandas as pd
 import numpy as np
@@ -19,9 +18,9 @@ plt.rcParams['font.family'] = 'Malgun Gothic'
 # 2. 마이너스 기호 깨짐 방지
 plt.rcParams['axes.unicode_minus'] = False
 
-app_dir = Path(__file__).parent
 # ✅ 영천 인구 데이터 불러오기
-df_population = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/영천인구.csv")
+df_population = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/영천인구.csv")
+
 # 총인구수 전처리
 df_population["총인구수"] = (
     df_population["총인구수"]
@@ -52,7 +51,7 @@ df_population["고령인구비율"] = (df_population["고령인구"] / df_popula
 
 
 
-df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/df_final.csv")
+df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/df_final.csv")
 df.columns
 # ----------------------------------------
 # df['위험등급'] = pd.qcut(df['total_score'], q=3, labels=["낮음", "중간", "높음"])
@@ -92,7 +91,7 @@ df['주용도코드명']
 
 
 
-stations = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/FireStationsAmbulances.csv",encoding='cp949')
+stations = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/FireStationsAmbulances.csv",encoding='cp949')
 
 # 2. "영천"으로 시작하고, 위경도 결측치 없는 행만 필터링
 stations_filtered = stations[
@@ -101,9 +100,18 @@ stations_filtered = stations[
     stations["경도"].notna()
 ].copy()
 
+stations_fake = stations_filtered.copy()
+stations_fake.loc[len(stations_fake)] = [
+    82, "영천소방서", "가상센터", np.nan, "123마1234", 36.0794113, 129.0182276
+]
+
+
 # 3. 소방서 좌표 배열
 station_lats = np.radians(stations_filtered["위도"].values)
 station_lons = np.radians(stations_filtered["경도"].values)
+
+station_lats2 = np.radians(stations_fake["위도"].values)
+station_lons2 = np.radians(stations_fake["경도"].values)
 
 # 4. 거리 계산 함수
 def haversine_min_distance(lat1, lon1, lats2, lons2):
@@ -122,6 +130,41 @@ df["소방서거리"] = df.apply(
     axis=1
 )
 
+
+df_fake = df.copy()
+df_fake["소방서거리"] = df_fake.apply(
+    lambda row: haversine_min_distance(row["위도"], row["경도"], station_lats2, station_lons2),
+    axis=1
+)
+
+
+conditions = [
+    df_fake["소방서거리"] < 1000,
+    df_fake["소방서거리"] < 3000,
+    df_fake["소방서거리"] < 5000,
+    df_fake["소방서거리"] < 7000,
+    df_fake["소방서거리"] >= 7000
+]
+
+# 해당 조건에 대한 점수
+scores = [1.0, 2.0, 3.0, 4.0, 5.0]
+
+# 점수 계산 열 생성
+df_fake["소방관서거리_점수"] = np.select(conditions, scores)
+a = df_fake['소방관서거리_점수'] - df['소방관서거리_점수']
+a.unique()
+weights = {
+    "건물연차점수": 25,
+    "지상층수_점수": 9,
+    "지하층수_점수": 11,
+    "비상용승강기_점수": 5,
+    "주용도_점수": 20,
+    "구조코드_점수": 15,
+    "소화전거리_점수": 5,
+    "소방관서거리_점수": 10
+}
+# ✅ df_fake에도 total_score 계산
+df_fake["total_score"] = sum(df_fake[col] * weight for col, weight in weights.items())
 
 
 
@@ -150,7 +193,7 @@ def create_distance_hist_image():
 
 
 
-hydrants = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/FireHydrants.csv")
+hydrants = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/FireHydrants.csv")
 
 # 2. '영천' 소화전 필터링
 hydrants_filtered = hydrants[hydrants["소화전 고유코드"].astype(str).str.contains("영천")].copy()
@@ -225,7 +268,7 @@ def create_hydrant_station_map():
 
     # 🔷 읍면동 경계 (shp -> GeoDataFrame)
     
-    gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+    gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/old.geojson")
     
     gdf = gdf.to_crs(epsg=4326)  # 지도 좌표계로 맞추기
 

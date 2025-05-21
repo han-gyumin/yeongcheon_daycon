@@ -3,35 +3,40 @@ import pandas as pd
 import geopandas as gpd
 import folium
 import plotly.express as px
-from shared import app_dir, df_population, df,create_distance_hist_image, common_df,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered
-
+import os
+from shared import df_population, df,create_distance_hist_image, common_df,df_fake,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "www")
 region_list = df_population["읍면동"].unique().tolist()
 
 # UI 구성
 def app_ui(request):
-    return ui.page_navbar(
+    return ui.page_fluid(
+        ui.tags.head(
+            ui.tags.link(rel="stylesheet", href="styles.css")
+        ),
+        ui.page_navbar(
         ui.nav_panel("프로젝트 개요",
              ui.layout_columns(
-    ui.div(
-        ui.img(src="/text1.png", style="width:100%; height:auto;"),
-        style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
-    ),
-    ui.div(
-        ui.img(src="/text2.png", style="width:100%; height:auto;"),
-        style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
-    ),
-    ui.div(
-        ui.img(src="/text3.png", style="width:100%; height:auto;"),
-        style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
-    )
-),
+                ui.div(
+                    ui.img(src="text1.png", style="width:100%; height:auto;"),
+                    style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
+                ),
+                ui.div(
+                    ui.img(src="text2.png", style="width:100%; height:auto;"),
+                    style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
+                ),
+                ui.div(
+                    ui.img(src="text3.png", style="width:100%; height:auto;"),
+                    style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
+                )
+                ),
              ui.layout_columns(
                     ui.div(
-                        ui.img(src="../img1.png", style="width:100%"),
+                        ui.img(src="img1.png", style="width:100%"),
                         style="padding: 5px;"
                     ),
                     ui.div(
-                        ui.img(src="../img2.png", style="width:100%"),
+                        ui.img(src="img2.png", style="width:100%"),
                         style="padding: 5px;"
                     )
              ),
@@ -123,20 +128,7 @@ def app_ui(request):
             ui.layout_sidebar(
             ui.sidebar(
                 ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=region_list),
-                title="Filter controls"
-            ),
-                ui.card(
-                    ui.card_header("📊 평균 위험 점수 상·하위 건물 특성 비교"),
-                    ui.output_data_frame("show_summary"),
-                    full_screen=True
-                
-            ),
-                ui.layout_columns(
-                ui.card(
-                    ui.card_header("📊 읍면동별 평균 위험 점수 및 건물 특성 비교"),
-                    ui.output_data_frame("show_summary2"),
-                    full_screen=True
-    )
+                title="필터 설정"
             ),
             ui.layout_columns(
                 ui.card(
@@ -150,6 +142,25 @@ def app_ui(request):
                     full_screen=True
                 )
             ),
+                ui.card(
+                    ui.card_header("📊 평균 위험 점수 상·하위 건물 특성 비교"),
+                    ui.output_plot("top_bottom_histogram"),  # 여기에 추가
+                    full_screen=True
+                ),
+                ui.card(
+                    ui.card_header("📊 평균 위험 점수 상·하위 건물 특성 비교"),
+                    ui.output_data_frame("show_summary"),
+                    full_screen=True
+                
+            ),
+                ui.layout_columns(
+                ui.card(
+                    ui.card_header("📊 읍면동별 평균 위험 점수 및 건물 특성 비교"),
+                    ui.output_data_frame("show_summary2"),
+                    full_screen=True
+    )
+            ),
+            
             ui.layout_columns(
                 ui.card(
                     ui.card_header("읍면동별 인구 및 고령 인구 현황"),
@@ -164,11 +175,21 @@ def app_ui(request):
         
         
         ui.nav_panel("결론",
-            ui.card(
-        ui.card_header("🔍 데이터 기반 분석을 통한 화재 취약 지역 식별 및 시사점 도출"),
-        ui.output_ui("highlight_common_regions"),
-        full_screen=True
-    ),
+                     
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("🔍 데이터 기반 분석을 통한 화재 취약 지역 식별 및 시사점 도출"),
+                    ui.output_ui("highlight_common_regions"),
+                    full_screen=False,
+                    width=6
+                    ),
+            
+            ui.card(  #✅ 새로 추가된 카드
+                ui.card_header("📂 프로젝트 요약"),
+                ui.output_data_frame("show_ProjectSummary_table"),
+                width=6
+            ),
+            ),
     ui.layout_columns(
         ui.card(
             ui.card_header("🔍 사용자 선택 기준에 따른 건물 데이터 시각화"),
@@ -181,9 +202,11 @@ def app_ui(request):
     ),
     ui.card(
         ui.card_header("📈 조건 변화에 따른 점수 변화 시뮬레이션"),
-        full_screen=True
+        ui.output_ui("show_score_map3"),
+             full_screen=True,
+            ),
     )
-        ),
+        ,
         
         
         
@@ -232,17 +255,29 @@ def app_ui(request):
                 ),
                 
                 ui.layout_columns(
+                    ui.input_checkbox_group("structure_group", "구조 그룹 선택", choices=df["구조그룹"].dropna().unique().tolist(), selected=df["구조그룹"].dropna().unique().tolist()),
                     ui.input_slider("year_filter", "건축연도 (From ~ To)", min=1950, max=2025, value=(1980, 2020)),
                     ui.input_slider("score_filter", "위험 점수 (From ~ To)", min=0, max=500, value=(100, 350)),
-                    ui.input_checkbox_group("structure_group", "구조 그룹 선택", choices=df["구조그룹"].dropna().unique().tolist(), selected=df["구조그룹"].dropna().unique().tolist()),
+                    
                     ui.download_button("download_csv", "📥 CSV 다운로드"),
                 ),
                 ui.output_ui("show_score_map2"),
                     full_screen=True
                 ),
                     ),
-        title="🧯 영천시 화재 취약건물 분석"
+        title=ui.tags.div(
+            ui.tags.span(
+                "🧯 영천시 화재 취약건물 분석",
+                id="go_home_title",  # ← 클릭할 대상
+                style="cursor:pointer; color:#004080; font-weight:bold;"
+            ),
+            ui.input_action_button("go_home", "", style="display:none;")
+        ),
+        id="main_tab",  # ← 페이지 ID
+        selected="프로젝트 개요",
+        )
     )
+    
 
 
 
@@ -542,8 +577,8 @@ def server(input, output, session):
     @render.ui
     def show_population_map():
         selected = input.region()
-        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
-        df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/영천인구.csv")
+        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/old.geojson")
+        df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/영천인구.csv")
         df_pop = df_pop.rename(columns={"읍면동": "EMD_KOR_NM"})
         df_pop = df_pop[df_pop["EMD_KOR_NM"] != "합계"]
         df_pop["총인구수"] = df_pop["총인구수"].astype(str).str.replace(",", "").astype(float)
@@ -647,7 +682,7 @@ def server(input, output, session):
                     fill=True,
                     fill_color="red",
                     color=None,
-                    fill_opacity=0.7,
+                    fill_opacity=0.3,
                     popup=f"{row['읍면동']} | 위험도: {row['total_score']}"
                 ).add_to(m)
     
@@ -888,7 +923,107 @@ def server(input, output, session):
             ui.markdown("📌 겹치는 지역 2곳만 **빨간색**으로 강조한 전체 지도입니다."),
             ui.HTML(m._repr_html_())
         )
+    @reactive.Effect
+    @reactive.event(input.go_home)
+    def _():
+        session.send_input("main_tab", "프로젝트 개요")
 
-app = App(app_ui, server)
 
+    @output
+    @render.plot
+    def top_bottom_histogram():
+        import matplotlib.pyplot as plt
+    
+        filtered = filtered_building_df()
+        if filtered.empty:
+            fig, ax = plt.subplots()
+            ax.set_title("데이터 없음")
+            return fig
+    
+        # 전체 데이터
+        all_scores = filtered["total_score"]
+    
+        # 상/하위 10% 기준값
+        top_thresh = all_scores.quantile(0.9)
+        bottom_thresh = all_scores.quantile(0.1)
+    
+        # 각 그룹 나누기
+        top_10 = filtered[filtered["total_score"] >= top_thresh]
+        bottom_10 = filtered[filtered["total_score"] <= bottom_thresh]
+        mid_80 = filtered[(filtered["total_score"] > bottom_thresh) & (filtered["total_score"] < top_thresh)]
+    
+        # 공통 bins 설정
+        bin_edges = plt.hist(all_scores, bins=30)[1]
+        plt.clf()
+    
+        fig, ax = plt.subplots(figsize=(10, 5))
+    
+        # 중간 80% 회색
+        ax.hist(mid_80["total_score"], bins=bin_edges, alpha=0.5, color="lightgray", label="중간 80%")
+    
+        # 하위 10% 주황
+        ax.hist(bottom_10["total_score"], bins=bin_edges, alpha=0.7, color="orange", label="하위 10%")
+    
+        # 상위 10% 파랑
+        ax.hist(top_10["total_score"], bins=bin_edges, alpha=0.7, color="royalblue", label="상위 10%")
+    
+        ax.set_title("전체 위험 점수 분포 및 상·하위 10% 강조")
+        ax.set_xlabel("위험 점수 (total_score)")
+        ax.set_ylabel("건물 수")
+        ax.legend()
+    
+        return fig
+    @output
+    @render.data_frame
+    def show_ProjectSummary_table():
+        df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/ProjectSummary.csv", sep="\t", encoding="utf-8")
+        return render.DataGrid(df, width="100%", height="500px", filters=False)
+    
+    @output
+    @render.ui
+    def show_score_map3():
+        selected = input.region()
+        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+
+        # ✅ df 대신 df_fake 사용
+        df_score = df_fake[df_fake["읍면동"].isin(selected)].copy()
+        df_score_grouped = df_score.groupby("읍면동")["total_score"].mean().reset_index()
+        df_score_grouped = df_score_grouped.rename(columns={"읍면동": "EMD_KOR_NM", "total_score": "평균위험도"})
+
+        gdf = gdf.merge(df_score_grouped, on="EMD_KOR_NM", how="left")
+        gdf["평균위험도"] = gdf["평균위험도"].fillna(0)
+        gdf = gdf[gdf["EMD_KOR_NM"].isin(selected)].copy()
+
+        min_score = gdf["평균위험도"].min()
+        max_score = gdf["평균위험도"].max()
+        step = (max_score - min_score) / 5 if max_score != min_score else 1
+
+        center = gdf.geometry.unary_union.centroid
+        m = folium.Map(location=[center.y, center.x], zoom_start=11)
+
+        def get_score_color(score):
+            if score >= min_score + step * 4: return "#d73027"
+            elif score >= min_score + step * 3: return "#fc8d59"
+            elif score >= min_score + step * 2: return "#fee08b"
+            elif score >= min_score + step * 1: return "#d9ef8b"
+            else: return "#91cf60"
+
+        folium.GeoJson(
+            gdf,
+            name="위험도 시각화",
+            style_function=lambda feature: {
+                "fillColor": get_score_color(feature["properties"].get("평균위험도", 0)),
+                "color": "black",
+                "weight": 1,
+                "fillOpacity": 0.6,
+            },
+            tooltip=folium.GeoJsonTooltip(
+                fields=["EMD_KOR_NM", "평균위험도"],
+                aliases=["읍면동", "평균 취약 점수"],
+                localize=True
+            )
+        ).add_to(m)
+
+        return ui.HTML(m._repr_html_())
+app = App(app_ui, server, static_assets=STATIC_DIR)
 

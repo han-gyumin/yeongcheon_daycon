@@ -307,3 +307,27 @@ weights = {
             }
             # ✅ total_score 계산
 df["total_score"] = sum(df[col] * weight for col, weight in weights.items())
+
+
+
+
+top5_score = df.sort_values(by="total_score", ascending=False).head(5)
+
+# 읍면동 기준 중복 제거 (total_score 높은 값 기준으로)
+df_unique = df.sort_values(by="total_score", ascending=False).drop_duplicates(subset="읍면동")
+
+# 상위 4개 추출
+top5_score = df_unique.head(5)
+
+# 고령인구비율 상위 4개 지역 추출
+top5_old = df_population.sort_values(by="고령인구비율", ascending=False).head(5)
+
+# 교집합 추출
+common_areas = set(top5_score['읍면동']) & set(top5_old['읍면동'])
+
+# 겹치는 읍면동만 필터링
+score_filtered = top5_score[top5_score["읍면동"].isin(common_areas)][["읍면동", "total_score"]]
+old_filtered = top5_old[top5_old["읍면동"].isin(common_areas)][["읍면동", "고령인구비율"]]
+
+# 두 데이터프레임 병합
+common_df = pd.merge(score_filtered, old_filtered, on="읍면동")

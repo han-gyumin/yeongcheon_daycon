@@ -3,7 +3,7 @@ import pandas as pd
 import geopandas as gpd
 import folium
 import plotly.express as px
-from shared import app_dir, df_population, df,create_distance_hist_image, create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered
+from shared import app_dir, df_population, df,create_distance_hist_image, common_df,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered
 
 region_list = df_population["읍면동"].unique().tolist()
 
@@ -12,14 +12,19 @@ def app_ui(request):
     return ui.page_navbar(
         ui.nav_panel("프로젝트 개요",
              ui.layout_columns(
-                *[
-                    ui.div(
-                        ui.img(src=src, style="width:100%; height:auto;"),
-                        style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
-                    )
-                    for src in ["/text1.png", "/text2.png", "/text3.png"]
-                ]
-            ),
+    ui.div(
+        ui.img(src="/text1.png", style="width:100%; height:auto;"),
+        style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
+    ),
+    ui.div(
+        ui.img(src="/text2.png", style="width:100%; height:auto;"),
+        style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
+    ),
+    ui.div(
+        ui.img(src="/text3.png", style="width:100%; height:auto;"),
+        style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
+    )
+),
              ui.layout_columns(
                     ui.div(
                         ui.img(src="../img1.png", style="width:100%"),
@@ -33,7 +38,7 @@ def app_ui(request):
               # 🔸 프로젝트 목적 카드
             ui.card(
                 ui.markdown("""
-                    ### ✅ **프로젝트 목적**
+                    ### **프로젝트 목적**
 
                     #### - 영천시의 건축물대장 데이터를 기반으로 화재에 취약한 건물의 분포를 분석  
                     #### - 건축 구조, 층수, 접근성 등을 반영한 **행정동 단위의 화재 취약 점수**를 산출  
@@ -46,7 +51,7 @@ def app_ui(request):
             # 🔸 프로젝트 기대효과 카드
             ui.card(
                 ui.markdown("""
-                    ### ✅ **프로젝트 기대효과**
+                    ### **프로젝트 기대효과**
 
                     #### - **데이터 기반의 화재 취약 지역 파악**으로 인한 재난 대응 효율성 향상  
                     #### - 고령 인구 밀집 지역 등 **사회적 약자 보호 강화**  
@@ -161,6 +166,7 @@ def app_ui(request):
         ui.nav_panel("결론",
             ui.card(
         ui.card_header("🔍 데이터 기반 분석을 통한 화재 취약 지역 식별 및 시사점 도출"),
+        ui.output_ui("highlight_common_regions"),
         full_screen=True
     ),
     ui.layout_columns(
@@ -427,7 +433,7 @@ def server(input, output, session):
     @reactive.calc
     def filtered_df():
         selected = input.region()
-        return df[df["읍면동"].isin(selected)]
+        return df_population[df_population["읍면동"].isin(selected)]
 
     @reactive.calc
     def filtered_building_df():
@@ -463,7 +469,7 @@ def server(input, output, session):
                 avg_total_score
             ]
 
-        filtered = filtered_df()
+        filtered = filtered_building_df()
         if filtered.empty:
             return pd.DataFrame(columns=[
                 "구분", "최빈 사용 승인 연도", "최빈 주용도", "최빈 건물 구조", "최다 출현 읍면동",
@@ -575,7 +581,7 @@ def server(input, output, session):
     @output
     @render.data_frame
     def population_table():
-        df_show = filtered_building_df().copy()
+        df_show = filtered_df().copy()
         df_show["고령인구비율"] = (df_show["고령인구비율"]).round(2).astype(str) + " %"
         return df_show[["읍면동", "총인구수", "고령인구", "고령인구비율"]]
 
@@ -807,7 +813,7 @@ def server(input, output, session):
 
     @reactive.calc
     def summary_df2():
-        filtered = filtered_df()  # ← 선택된 읍면동만 사용
+        filtered = filtered_building_df()  # ← 선택된 읍면동만 사용
         dong_list = filtered['읍면동'].dropna().unique()
 
         summary_data = [
@@ -826,4 +832,63 @@ def server(input, output, session):
     def show_summary2():
         return render.DataGrid(summary_df2(), width="100%", height="500px", filters=False)
 
+
+    @output
+    @render.ui
+    def highlight_common_regions():
+        import geopandas as gpd
+        import pandas as pd
+        import folium
+
+        # ✅ GeoJSON 전체 불러오기
+        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson").to_crs(epsg=4326)
+
+        # ✅ 공통 지역 리스트 가져오기
+        common_regions = common_df["읍면동"].unique().tolist()
+
+        # ✅ 위험 점수 평균 계산
+        df_score = df[df["읍면동"].isin(common_regions)].copy()
+        df_score_grouped = df_score.groupby("읍면동")["total_score"].mean().reset_index()
+        df_score_grouped = df_score_grouped.rename(columns={"읍면동": "EMD_KOR_NM", "total_score": "평균위험도"})
+
+        # ✅ GeoJSON과 병합
+        gdf = gdf.merge(df_score_grouped, on="EMD_KOR_NM", how="left")
+
+        # ✅ 고령인구 비율 병합
+        df_old_filtered = df_population[df_population["읍면동"].isin(common_regions)][["읍면동", "고령인구비율"]]
+        df_old_filtered = df_old_filtered.rename(columns={"읍면동": "EMD_KOR_NM"})
+        gdf = gdf.merge(df_old_filtered, on="EMD_KOR_NM", how="left")
+
+        # ✅ 지도 중심 계산
+        center = gdf.geometry.unary_union.centroid
+        m = folium.Map(location=[center.y, center.x], zoom_start=11)
+
+        # ✅ GeoJSON 시각화
+        folium.GeoJson(
+            gdf,
+            name="전체 읍면동",
+            style_function=lambda feature: {
+                "fillColor": "#ff4c4c" if feature["properties"]["EMD_KOR_NM"] in common_regions else "#cccccc",
+                "color": "black" if feature["properties"]["EMD_KOR_NM"] in common_regions else "gray",
+                "weight": 2 if feature["properties"]["EMD_KOR_NM"] in common_regions else 1,
+                "fillOpacity": 0.7,
+            },
+            tooltip=folium.GeoJsonTooltip(
+                fields=["EMD_KOR_NM", "평균위험도", "고령인구비율"],
+                aliases=["읍면동", "평균 위험도", "고령 인구 비율(%)"],
+                localize=True,
+                sticky=False,
+                labels=True,
+                toLocaleString=True,
+                style="background-color: white;"
+            )
+        ).add_to(m)
+
+        return ui.TagList(
+            ui.markdown("📌 겹치는 지역 2곳만 **빨간색**으로 강조한 전체 지도입니다."),
+            ui.HTML(m._repr_html_())
+        )
+
 app = App(app_ui, server)
+
+

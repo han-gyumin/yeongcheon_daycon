@@ -1,6 +1,10 @@
 from pathlib import Path
 
 import pandas as pd
+
+from pathlib import Path
+
+import pandas as pd
 import numpy as np
 
 
@@ -88,7 +92,7 @@ df['주용도코드명']
 
 
 
-stations = pd.read_csv("FireStationsAmbulances.csv",encoding='cp949')
+stations = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/FireStationsAmbulances.csv",encoding='cp949')
 
 # 2. "영천"으로 시작하고, 위경도 결측치 없는 행만 필터링
 stations_filtered = stations[
@@ -146,7 +150,7 @@ def create_distance_hist_image():
 
 
 
-hydrants = pd.read_csv("FireHydrants.csv")
+hydrants = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/FireHydrants.csv")
 
 # 2. '영천' 소화전 필터링
 hydrants_filtered = hydrants[hydrants["소화전 고유코드"].astype(str).str.contains("영천")].copy()

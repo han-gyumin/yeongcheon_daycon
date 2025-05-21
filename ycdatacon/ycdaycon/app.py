@@ -27,7 +27,7 @@ from pathlib import Path
 ui.page_opts(title="🧯영천 화재 취약건물 분석", fillable=True, page_fn=partial(page_navbar, id="page"))
 
 with ui.nav_panel("프로젝트 개요"):
-    ui.card_header("📢 최근 영천시 화재 기사 캡처")
+    ui.card_header("📢 최근 영천시 화재 기사")
     with ui.layout_columns():
         for src in ["/text1.png", "/text2.png", "/text3.png"]:
             ui.div(
@@ -282,19 +282,7 @@ with ui.nav_panel(title="위험스코어"):
             else:
                 return df_population[df_population["읍면동"].isin(selected)]
 
-        # with ui.layout_column_wrap(fill=False):
-        #     with ui.value_box(showcase=icon_svg("users")):
-        #         "선택된 지역 총 인구수"
-        #         @render.text
-        #         def total_population():
-        #             return f"{filtered_df()['총인구수'].sum():,.0f} 명"
-
-        #     with ui.value_box(showcase=icon_svg("user-group")):
-        #         "선택된 지역 평균 인구수"
-        #         @render.text
-        #         def avg_population():
-        #             return f"{filtered_df()['총인구수'].mean():,.1f} 명"
-                
+            
         with ui.card(full_screen=True):
             ui.card_header("📊 평균 위험 점수 상·하위 건물 특성 비교")
             def summarize_buildings(df_subset, label):
@@ -310,7 +298,7 @@ with ui.nav_panel(title="위험스코어"):
                 avg_elevator_score = round(df_subset['비상용승강기_점수'].mean(), 2)
                 avg_hydrant_score = round(df_subset['소화전거리_점수'].mean(), 2)
                 avg_firestation_score = round(df_subset['소방관서거리_점수'].mean(), 2)
-        
+
                 return [
                     label,
                     most_common_year,
@@ -326,174 +314,160 @@ with ui.nav_panel(title="위험스코어"):
                     avg_hydrant_score,
                     avg_firestation_score,
                 ]
-        
+
             # 기준 분할
             top_10 = df[df["total_score"] >= df["total_score"].quantile(0.9)]
             bottom_10 = df[df["total_score"] <= df["total_score"].quantile(0.1)]
-        
+
             # 표 생성
             summary_data = [
                 summarize_buildings(top_10, "상위 10%"),
                 summarize_buildings(bottom_10, "하위 10%"),
             ]
-        
+
             columns = [
                 "구분", "최빈 사용 승인 연도", "최빈 주용도", "최빈 건물 구조",
                 "건물 높이 평균", "소화전 거리 평균", "소방관서 거리 평균",
                 "건물연차_점수", "지상층수_점수", "지하층수_점수",
                 "비상용승강기_점수", "소화전거리_점수", "소방관서거리_점수"
             ]
-        
+
             summary_df = pd.DataFrame(summary_data, columns=columns)
-        
+
             @render.data_frame
             def show_summary():
                 return render.DataGrid(summary_df, filters=False)
-                    
-                    
+
+
         with ui.card(full_screen=True):
             ui.card_header("📊 평균 위험 점수 상·하위 지역 특성 비교")
-        with ui.card(full_screen=True):
-            ui.card_header("읍면동별 평균 점수 시각화")
-            @reactive.calc
-            def score_map_html():
-                selected = input.region()
-                # ✅ 1. GeoJSON 불러오기
-                gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+        
+        with ui.layout_columns():
+            with ui.card(full_screen=True):
+                ui.card_header("읍면동별 평균 점수 시각화")
+                @reactive.calc
+                def score_map_html():
+                    selected = input.region()
+                    # ✅ 1. GeoJSON 불러오기
+                    gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
 
 
-                # ✅ 2. df에서 읍면동별 평균 total_score 집계
+                    # ✅ 2. df에서 읍면동별 평균 total_score 집계
 
 
-                df_score = df[df["읍면동"].isin(selected)].copy()
-                df_score_grouped = df_score.groupby("읍면동")["total_score"].mean().reset_index()
-                # ✅ 3. 컬럼 이름 맞추고 병합
-                df_score_grouped = df_score_grouped.rename(columns={"읍면동": "EMD_KOR_NM", "total_score": "평균위험도"})
+                    df_score = df[df["읍면동"].isin(selected)].copy()
+                    df_score_grouped = df_score.groupby("읍면동")["total_score"].mean().reset_index()
+                    # ✅ 3. 컬럼 이름 맞추고 병합
+                    df_score_grouped = df_score_grouped.rename(columns={"읍면동": "EMD_KOR_NM", "total_score": "평균위험도"})
 
-                gdf = gdf.merge(df_score_grouped, on="EMD_KOR_NM", how="left")
-                gdf["평균위험도"] = gdf["평균위험도"].fillna(0)
+                    gdf = gdf.merge(df_score_grouped, on="EMD_KOR_NM", how="left")
+                    gdf["평균위험도"] = gdf["평균위험도"].fillna(0)
 
-                # ✅ 동적으로 색상 구간 계산
-                min_score = gdf["평균위험도"].min()
-                max_score = gdf["평균위험도"].max()
-                step = (max_score - min_score) / 5 if max_score != min_score else 1  # 분모 0 방지
-                # ✅ 4. 지도 생성
-                center = gdf.geometry.unary_union.centroid
-                m = folium.Map(location=[center.y, center.x], zoom_start=11)
-                # ✅ 5. 위험도 색상 매핑 함수 정의
-                def get_score_color(score):
-                    if score >= min_score + step * 4:
-                        return "#d73027"  # 빨강
-                    elif score >= min_score + step * 3:
-                        return "#fc8d59"  # 주황
-                    elif score >= min_score + step * 2:
-                        return "#fee08b"  # 노랑
-                    elif score >= min_score + step * 1:
-                        return "#d9ef8b"  # 연두
-                    else:
-                        return "#91cf60"  # 초록
-                # ✅ 6. GeoJson 추가
-                folium.GeoJson(
-                    gdf,
-                    name="위험도 시각화",
-                    style_function=lambda feature: {
-                    "fillColor": get_score_color(feature["properties"].get("평균위험도", 0)),
-                    "color": "black",
-                    "weight": 1,
-                    "fillOpacity": 0.6,
-                },
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=["EMD_KOR_NM", "평균위험도"],
-                        aliases=["읍면동", "평균 취약 점수"],
-                        localize=True
-                    ),
-                ).add_to(m)
-                return m._repr_html_()
-            @render.ui
-            def show_score_map():
-                return ui.HTML(score_map_html())
-
-            with ui.layout_columns():
-                with ui.card(full_screen=True):
-                    ui.card_header("영천시 고령인구 비율 시각화")
-
-                    @reactive.calc
-                    def population_map_html():
-                        selected = input.region()
-
-                        # ✅ GeoJSON 불러오기
-                        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
-
-                        # ✅ 인구수 CSV 불러오기 및 전처리
-                        df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/영천인구.csv")
-                        df_pop = df_pop.rename(columns={"읍면동": "EMD_KOR_NM"})
-                        df_pop = df_pop[df_pop["EMD_KOR_NM"] != "합계"].copy()
-
-                        # 총인구, 고령인구 전처리
-                        df_pop["총인구수"] = df_pop["총인구수"].astype(str).str.replace(",", "").str.strip().astype(float)
-                        df_pop["고령인구"] = df_pop["고령인구"].astype(str).str.replace(",", "").str.strip().astype(float)
-
-                        # 고령인구 비율 계산
-                        df_pop["고령인구비율(%)"] = (df_pop["고령인구"] / df_pop["총인구수"] * 100).round(2)
-
-                        # ✅ GeoJSON 병합
-                        gdf = gdf.merge(
-                        df_pop[["EMD_KOR_NM", "총인구수", "고령인구", "고령인구비율(%)"]],
-                            on="EMD_KOR_NM", how="left"
-                            )
-                        gdf[["총인구수", "고령인구", "고령인구비율(%)"]] = gdf[["총인구수", "고령인구", "고령인구비율(%)"]].fillna(0)
-
-                        # ✅ 선택 지역 필터링
-                        gdf_filtered = gdf[gdf["EMD_KOR_NM"].isin(selected)].copy()
-
-                        center = gdf_filtered.geometry.unary_union.centroid
-                        m = folium.Map(location=[center.y, center.x], zoom_start=10)
-
-                        # ✅ 지도 시각화
-                        folium.GeoJson(
-                            gdf_filtered,
-                            name="고령인구 비율 시각화",
-                            style_function=lambda feature: {
-                                'fillColor': '#%02x%02x%02x' % (
-                                    255,
-                                    255 - int(feature['properties'].get('고령인구비율(%)', 0) / max(gdf_filtered["고령인구비율(%)"].max(), 1) * 255),
-                                    150
-                                ),
-                                'color': 'black',
-                                'weight': 1,
-                                'fillOpacity': 0.7,
-                            },
-                            tooltip=folium.GeoJsonTooltip(
-                                fields=["EMD_KOR_NM", "총인구수", "고령인구", "고령인구비율(%)"],
-                                aliases=["읍면동", "총 인구수", "고령 인구수", "고령 인구 비율(%)"],
-                                localize=True
-                            )
-                        ).add_to(m)
-
-                        return m._repr_html_()
-
-                    @render.ui
-                    def show_population_map():
-                        return ui.HTML(population_map_html())
-
-
-                with ui.card(full_screen=True):
-                    ui.card_header("읍면동별 인구 및 고령 인구 현황")
-
-                    @render.data_frame
-                    def population_table():
-                        # 표시할 컬럼을 명시적으로 지정 (고령인구 및 비율 포함)
-                        cols = [
-                            "읍면동",
-                            "총인구수",
-                            "고령인구",
-                            "고령인구비율"
-                        ]
-                        # 고령인구비율은 퍼센트 형식으로 포맷팅해서 보여주고 싶다면 다음 코드도 가능
-                        df_show = filtered_df()[cols].copy()
-                        df_show["고령인구비율"] = (df_show["고령인구비율"]).round(2).astype(str) + " %"
-
-                        return render.DataGrid(df_show, filters=False)
+                    # ✅ 동적으로 색상 구간 계산
+                    min_score = gdf["평균위험도"].min()
+                    max_score = gdf["평균위험도"].max()
+                    step = (max_score - min_score) / 5 if max_score != min_score else 1  # 분모 0 방지
+                    # ✅ 4. 지도 생성
+                    center = gdf.geometry.unary_union.centroid
+                    m = folium.Map(location=[center.y, center.x], zoom_start=11)
+                    # ✅ 5. 위험도 색상 매핑 함수 정의
+                    def get_score_color(score):
+                        if score >= min_score + step * 4:
+                            return "#d73027"  # 빨강
+                        elif score >= min_score + step * 3:
+                            return "#fc8d59"  # 주황
+                        elif score >= min_score + step * 2:
+                            return "#fee08b"  # 노랑
+                        elif score >= min_score + step * 1:
+                            return "#d9ef8b"  # 연두
+                        else:
+                            return "#91cf60"  # 초록
+                    # ✅ 6. GeoJson 추가
+                    folium.GeoJson(
+                        gdf,
+                        name="위험도 시각화",
+                        style_function=lambda feature: {
+                        "fillColor": get_score_color(feature["properties"].get("평균위험도", 0)),
+                        "color": "black",
+                        "weight": 1,
+                        "fillOpacity": 0.6,
+                    },
+                        tooltip=folium.GeoJsonTooltip(
+                            fields=["EMD_KOR_NM", "평균위험도"],
+                            aliases=["읍면동", "평균 취약 점수"],
+                            localize=True
+                        ),
+                    ).add_to(m)
+                    return m._repr_html_()
+                @render.ui
+                def show_score_map():
+                    return ui.HTML(score_map_html())
+            with ui.card(full_screen=True):
+                ui.card_header("영천시 고령인구 비율 시각화")
+                @reactive.calc
+                def population_map_html():
+                    selected = input.region()
+                    # ✅ GeoJSON 불러오기
+                    gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+                    # ✅ 인구수 CSV 불러오기 및 전처리
+                    df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/ycdaycon/영천인구.csv")
+                    df_pop = df_pop.rename(columns={"읍면동": "EMD_KOR_NM"})
+                    df_pop = df_pop[df_pop["EMD_KOR_NM"] != "합계"].copy()
+                    # 총인구, 고령인구 전처리
+                    df_pop["총인구수"] = df_pop["총인구수"].astype(str).str.replace(",", "").str.strip().astype(float)
+                    df_pop["고령인구"] = df_pop["고령인구"].astype(str).str.replace(",", "").str.strip().astype(float)
+                    # 고령인구 비율 계산
+                    df_pop["고령인구비율(%)"] = (df_pop["고령인구"] / df_pop["총인구수"] * 100).round(2)
+                    # ✅ GeoJSON 병합
+                    gdf = gdf.merge(
+                    df_pop[["EMD_KOR_NM", "총인구수", "고령인구", "고령인구비율(%)"]],
+                        on="EMD_KOR_NM", how="left"
+                        )
+                    gdf[["총인구수", "고령인구", "고령인구비율(%)"]] = gdf[["총인구수", "고령인구", "고령인구비율(%)"]].fillna(0)
+                    # ✅ 선택 지역 필터링
+                    gdf_filtered = gdf[gdf["EMD_KOR_NM"].isin(selected)].copy()
+                    center = gdf_filtered.geometry.unary_union.centroid
+                    m = folium.Map(location=[center.y, center.x], zoom_start=10)
+                    # ✅ 지도 시각화
+                    folium.GeoJson(
+                        gdf_filtered,
+                        name="고령인구 비율 시각화",
+                        style_function=lambda feature: {
+                            'fillColor': '#%02x%02x%02x' % (
+                                255,
+                                255 - int(feature['properties'].get('고령인구비율(%)', 0) / max(gdf_filtered["고령인구비율(%)"].max(), 1) * 255),
+                                150
+                            ),
+                            'color': 'black',
+                            'weight': 1,
+                            'fillOpacity': 0.7,
+                        },
+                        tooltip=folium.GeoJsonTooltip(
+                            fields=["EMD_KOR_NM", "총인구수", "고령인구", "고령인구비율(%)"],
+                            aliases=["읍면동", "총 인구수", "고령 인구수", "고령 인구 비율(%)"],
+                            localize=True
+                        )
+                    ).add_to(m)
+                    return m._repr_html_()
+                @render.ui
+                def show_population_map():
+                    return ui.HTML(population_map_html())
+        with ui.layout_columns():
+            with ui.card(full_screen=True):
+                ui.card_header("읍면동별 인구 및 고령 인구 현황")
+                @render.data_frame
+                def population_table():
+                    # 표시할 컬럼을 명시적으로 지정 (고령인구 및 비율 포함)
+                    cols = [
+                        "읍면동",
+                        "총인구수",
+                        "고령인구",
+                        "고령인구비율"
+                    ]
+                    # 고령인구비율은 퍼센트 형식으로 포맷팅해서 보여주고 싶다면 다음 코드도 가능
+                    df_show = filtered_df()[cols].copy()
+                    df_show["고령인구비율"] = (df_show["고령인구비율"]).round(2).astype(str) + " %"
+                    return render.DataGrid(df_show, filters=False)
 with ui.nav_panel(title="결론"):
     with ui.card(full_screen=True):
         ui.card_header("🔍 데이터 기반 분석을 통한 화재 취약 지역 식별 및 시사점 도출")

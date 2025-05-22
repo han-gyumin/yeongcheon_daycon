@@ -381,3 +381,7 @@ old_filtered = top5_old[top5_old["읍면동"].isin(common_areas)][["읍면동", 
 common_df = pd.merge(score_filtered, old_filtered, on="읍면동")
 
 
+region_list = df_population["읍면동"].unique().tolist()
+half = len(region_list) // 2
+region_score1 = region_list[:half]
+region_score2 = region_list[half:]

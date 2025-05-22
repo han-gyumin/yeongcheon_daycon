@@ -19,7 +19,23 @@ def app_ui(request):
             )
         ), 
         ui.page_navbar(
-            ui.nav_panel("1",
+            ui.nav_panel("건물 취약도 분석",
+                ui.tags.head(
+                    ui.tags.style("""
+                        .nav-link {
+                           background-color: #f05d4e !important;
+                           color: white !important;
+                           font-weight: bold;
+                           border-radius: 4px;
+                           margin: 2px;
+                        }
+
+                        .nav-link.active {
+                            background-color: #d94d40 !important;
+                            color: #fff !important;
+                        }
+                    """)
+                ),
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
@@ -27,7 +43,7 @@ def app_ui(request):
                     ),
                     ui.layout_columns(
                         ui.card(
-                            ui.card_header("🔍 사용자 선택 기준에 따른 건물 분포 시각화"),
+                            ui.card_header("사용자 선택에 따른 건물 분포 시각화"),
                             ui.layout_columns(
                                 ui.input_slider("year_range", "사용승인년도(From ~ To)", min=1950, max=2025, value=(1980, 2000)),
                                 ui.input_slider("score_range", "취약 점수(From ~ To)", min=90, max=400, value=(220, 260))
@@ -36,26 +52,26 @@ def app_ui(request):
                             full_screen=True
                         ),
                         ui.card(
-                            ui.card_header("📊 취약 점수 기반 건물 분포"),
+                            ui.card_header("전체 건물의 취약 점수 분포"),
                             ui.output_plot("top_bottom_histogram"),  # 여기에 추가
                             full_screen=True
                         )
                     ),
                     ui.layout_columns(
                         ui.card(
-                            ui.card_header("📊 건물 취약 점수 상·하위 10% 집중 분석"),
+                            ui.card_header("건물 취약 점수 상·하위 10% 집중 분석"),
                             ui.output_data_frame("show_summary"),
                             full_screen=True
                         ),
                         ui.card(
-                            ui.card_header("📊 읍면동별 평균 취약 점수 및 건물 특성 비교"),
+                            ui.card_header("읍면동별 평균 취약 점수 및 건물 특성 비교"),
                             ui.output_data_frame("show_summary2"),
                             full_screen=True
                         )    
                     ),
                 )
             ),
-            ui.nav_panel("2",
+            ui.nav_panel("행정동 취약도 분석",
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.input_checkbox_group("region2", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
@@ -75,33 +91,33 @@ def app_ui(request):
                     ),
                     ui.layout_columns(
                         ui.card(
-                            ui.card_header("📍 취약 지역 겹침 분석 (취약점수 + 고령인구)"),
+                            ui.card_header("취약 지역 겹침 분석 (취약점수 + 고령인구)"),
                             ui.output_ui("highlight_common_regions"),
                             full_screen=False,
                             width=6
                         ),
                         ui.card(  #✅ 새로 추가된 카드
-                            ui.card_header("🗺️ 중첩 지역 분석"),
-                            
+                            ui.card_header("중첩 지역 분석"),
+                            ui.output_plot("line_total_score_by_dong")
                         ),
                     ),
                     ui.layout_columns(
                         ui.card(
-                            ui.card_header("📈 취약 지역 내 소방 인프라 확충에 따른 취약 점수"),
+                            ui.card_header("취약 지역 내 소방 인프라 확충에 따른 취약 점수"),
                             ui.output_ui("show_score_map3"),
                             full_screen=True,
                         ), 
                         ui.card(
-                            ui.card_header("📈 취약 점수 전후 변화 비교"),
+                            ui.card_header("취약 점수 전후 변화 비교"),
                             ui.output_ui("show_score_comparison_boxes")
                         ),   
                     ),
                     
                 ),    
             ),
-            ui.nav_panel("3",
+            ui.nav_panel("사용자 가중치 설정",
                 ui.card(
-                    ui.card_header("⚙️ 사용자 정의 가중치 기반 위험도 지도"),
+                    ui.card_header("사용자 정의 가중치 기반 위험도 지도"),
                     ui.layout_columns(
                         ui.input_slider("w0", "① 건물연차 점수", min=0, max=25, value=25),
                         ui.input_slider("w1", "② 지상층수", min=0, max=25, value=9),
@@ -118,13 +134,13 @@ def app_ui(request):
                         ui.input_checkbox_group("structure_group", "구조 그룹 선택", choices=df["구조그룹"].dropna().unique().tolist(), selected=df["구조그룹"].dropna().unique().tolist()),
                         ui.input_slider("year_filter", "건축연도 (From ~ To)", min=1950, max=2025, value=(1980, 2020)),
                         ui.input_slider("score_filter", "위험 점수 (From ~ To)", min=0, max=500, value=(100, 350)),
-                        ui.download_button("download_csv", "📥 CSV 다운로드"),
+                        ui.download_button("download_csv", "CSV 다운로드"),
                     ),
                     ui.output_ui("show_score_map2"),
                         full_screen=True
                 ),
             ),
-            ui.nav_panel("부록1",
+            ui.nav_panel("부록1(시각화)",
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("건물 노후도 구간별 분포 (2025년 기준)"),
@@ -157,41 +173,41 @@ def app_ui(request):
                         ui.output_ui("show_station_distance_plot")
                     ),
                     ui.card(
-                        ui.card_header("🧯 소화전 거리 분포"),
+                        ui.card_header("소화전 거리 분포"),
                         ui.output_ui("show_firehydrant_distance_plot")
                     ),
                 ),
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("🧯 소화전 및 소방서 위치 + 읍면동 경계 지도"),
+                        ui.card_header("소화전 및 소방서 위치 + 읍면동 경계 지도"),
                         ui.output_ui("show_hydrant_station_map"),
                         height="100%"
                     ),
                     ui.card(
-                        ui.card_header("📋 영천시 소방관서 정보"),
+                        ui.card_header("영천시 소방관서 정보"),
                         ui.output_data_frame("show_station_table")
                     )
                 )
             ),
-            ui.nav_panel("부록2",
+            ui.nav_panel("부록2(기준 및 설명)",
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("📊 변수 정의"),
+                        ui.card_header("변수 정의"),
                         ui.output_data_frame("show_variable_table")
                     ),
                     ui.card(
-                        ui.card_header("📂 데이터 설명"),
+                        ui.card_header("데이터 설명"),
                         ui.output_data_frame("show_data_table")
                     )
                 ),
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("📐 점수 산출 기준표"),
+                        ui.card_header("점수 산출 기준표"),
                         ui.output_data_frame("show_score_table"),
                         full_screen=True
                     ),
                     ui.card(
-                        ui.card_header("📐 가중치 산출 기준표"),
+                        ui.card_header("가중치 산출 기준표"),
                         ui.output_data_frame("show_weight_table"),
                         full_screen=True
                     )
@@ -639,7 +655,7 @@ def server(input, output, session):
     @output
     @render.data_frame
     def show_score_table():
-        df = pd.read_csv("score.csv", encoding="euc-kr")
+        df = pd.read_csv("score.csv",encoding="euc-kr")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
@@ -653,23 +669,34 @@ def server(input, output, session):
     @output
     @render.ui
     def show_score_map2():
-        
-        selected = ['동부동', '중앙동', '서부동', '남부동', '완산동', '금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면', '고경면', '북안면', '대창면']
+        selected = ['동부동', '중앙동', '서부동', '남부동', '완산동', '금호읍', '청통면', '신녕면',
+                    '화산면', '화북면', '화남면', '자양면', '임고면', '고경면', '북안면', '대창면']
 
-        # ✅ 가중치 가져오기
         w = [input.w0(), input.w1(), input.w2(), input.w3(),
              input.w4(), input.w5(), input.w6(), input.w7()]
 
-        # ✅ GeoJSON 불러오기
         gdf = gpd.read_file("old.geojson")
-
-        # ✅ 필터링된 건물 데이터
-        df_score = df[df["읍면동"].isin(selected)].copy()
+        # 슬라이더 및 체크박스 값 가져오기
+        year_min, year_max = input.year_filter()
+        score_min, score_max = input.score_filter()
+        structure_selected = input.structure_group()
+        
+        # 모든 조건 반영
+        df_score = df[
+            (df["읍면동"].isin(selected)) &
+            (df["사용승인일(년도)"].between(year_min, year_max)) &
+            (df["total_score"].between(score_min, score_max)) &
+            (df["구조그룹"].isin(structure_selected))
+        ].copy()
+        
+        total_count = len(df)
+        filtered_count = len(df_score)
 
         if df_score.empty:
             return ui.HTML("<b>해당 조건에 일치하는 건물 데이터가 없습니다.</b>")
 
-        # ✅ 가중치 점수 계산
+        # 가중치 점수 계산
+        
         df_score["weighted_score"] = (
             df_score["건물연차점수"] * w[0] +
             df_score["지상층수_점수"] * w[1] +
@@ -681,13 +708,13 @@ def server(input, output, session):
             df_score["소방관서거리_점수"] * w[7]
         )
 
+        # 지도 시각화용 데이터
         grouped = df_score.groupby("읍면동")["weighted_score"].mean().reset_index()
         grouped = grouped.rename(columns={"읍면동": "EMD_KOR_NM", "weighted_score": "평균위험도"})
-
         gdf = gdf.merge(grouped, on="EMD_KOR_NM", how="left")
         gdf["평균위험도"] = gdf["평균위험도"].fillna(0)
 
-        # ✅ 지도 시각화
+        # 지도 만들기
         min_score = gdf["평균위험도"].min()
         max_score = gdf["평균위험도"].max()
         step = (max_score - min_score) / 5 if max_score != min_score else 1
@@ -718,7 +745,38 @@ def server(input, output, session):
             )
         ).add_to(m)
 
-        return ui.HTML(m._repr_html_())
+        # 표 데이터
+        df_table = df_score[["읍면동", "대지위치", "total_score", "weighted_score"]].copy()
+        df_table = df_table.rename(columns={
+            "읍면동": "행정동",
+            "대지위치": "주소",
+            "total_score": "기존점수",
+            "weighted_score": "사용자가중점수"
+        })
+        df_table_html = df_table.to_html(index=False, escape=False)
+
+        scrollable_table_html = f"""
+            <div style='max-height: 600px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; font-size: 14px;'>
+            <table style="width:100%">{df_table_html.split('<table')[1]}</table>
+            </div>
+            """
+
+        # 가로 배치
+        return ui.TagList(
+            ui.markdown(f"전체 **{total_count:,}건 중 {filtered_count:,}건**이 조건을 만족합니다."),
+            ui.HTML("<h5>📌 사용자 설정 가중치 기반 위험 점수 지도 및 건물 목록</h5>"),
+            ui.layout_columns(
+                ui.card(
+                    ui.HTML(m._repr_html_()),
+                    full_screen=True
+                ),
+                ui.card(
+                    ui.HTML("<h5>필터링된 건물 목록</h5>"),
+                    ui.HTML(scrollable_table_html)
+                ),
+                col_widths=[7, 5]
+            )
+        )
     @reactive.calc
     def filtered_csv_data():
         year_min, year_max = input.year_filter()
@@ -743,8 +801,22 @@ def server(input, output, session):
                 (df["구조그룹"].isin(input.structure_group()))
             ]
 
-            selected_cols = ["대지위치", "위도", "경도", "total_score"]
-            df_selected = df_filtered[selected_cols].copy()
+            w = [input.w0(), input.w1(), input.w2(), input.w3(),input.w4(), input.w5(), input.w6(), input.w7()]
+
+            df_filtered["weighted_score"] = (
+            df_filtered["건물연차점수"] * w[0] +
+            df_filtered["지상층수_점수"] * w[1] +
+            df_filtered["지하층수_점수"] * w[2] +
+            df_filtered["비상용승강기_점수"] * w[3] +
+            df_filtered["주용도_점수"] * w[4] +
+            df_filtered["구조코드_점수"] * w[5] +
+            df_filtered["소화전거리_점수"] * w[6] +
+            df_filtered["소방관서거리_점수"] * w[7]
+                )
+
+        # 저장할 컬럼
+            selected_cols = ["대지위치", "위도", "경도", "total_score", "weighted_score"]
+            df_selected = df_filtered[selected_cols]
 
             yield df_selected.to_csv(index=False, encoding="utf-8-sig")
 
@@ -841,7 +913,7 @@ def server(input, output, session):
         ).add_to(m)
 
         return ui.TagList(
-            ui.markdown("📌 중첩된 2개 지역만 **빨간색**으로 강조하여 나타낸 전체 지도입니다."),
+            ui.markdown("중첩된 2개 지역만 **빨간색**으로 강조하여 나타낸 전체 지도입니다."),
             ui.HTML(m._repr_html_())
         )
     @reactive.Effect
@@ -979,7 +1051,7 @@ def server(input, output, session):
                     <div style='text-align:center;'> {row["읍면동"]}</div>
                     """),
                 value=ui.HTML(f"""
-                    <div style='font-size:25px; text-align:center; padding:4px 0; line-height:1.2'>
+                    <div style='font-size:30px; text-align:center; padding:4px 0; line-height:1.2'>
                         {row['전']} → {row['후']}
                     </div>
                     """),
@@ -989,5 +1061,73 @@ def server(input, output, session):
             boxes.append(box)
 
         return ui.layout_columns(*boxes, col_widths=[3] * len(boxes))
+    @reactive.calc
+    def mean_score_by_dong():
+        filtered = filtered_building_df()
+        grouped = (
+        filtered
+        .dropna(subset=['읍면동', 'total_score'])  # 결측 제거
+        .groupby('읍면동', as_index=False)['total_score']
+        .mean()
+        .rename(columns={'total_score': '위험 점수 평균'})
+        )
+        return grouped
+    
+    @output
+    @render.plot
+    def line_total_score_by_dong():
+        import matplotlib.pyplot as plt
+
+        # 데이터 준비
+        df_score = mean_score_by_dong()
+        df_age = df_population[['읍면동', '고령인구비율']].copy()
+        highlight_dongs = ['화산면', '임고면']
+
+        # ❶ 위험 점수 정렬용
+        df_score_sorted = df_score.sort_values(by='위험 점수 평균', ascending=False).reset_index(drop=True)
+        df_score_sorted['순서_위험'] = df_score_sorted.index
+
+        # ❷ 고령 인구 정렬용
+        df_age_sorted = df_age.sort_values(by='고령인구비율', ascending=False).reset_index(drop=True)
+        df_age_sorted['순서_고령'] = df_age_sorted.index
+
+        # 플롯 그리기
+        fig, ax1 = plt.subplots(figsize=(14, 6))
+
+        # 왼쪽 y축: 위험 점수
+        color1 = 'skyblue'
+        ax1.plot(df_score_sorted['순서_위험'], df_score_sorted['위험 점수 평균'], marker='o', color=color1, label='위험 점수 평균')
+        ax1.set_ylabel('위험 점수 평균', color=color1)
+        ax1.tick_params(axis='y', labelcolor=color1)
+        ax1.set_xticks(df_score_sorted['순서_위험'])
+
+        # 강조: 위험 점수
+        for dong in highlight_dongs:
+            row = df_score_sorted[df_score_sorted['읍면동'] == dong]
+            if not row.empty:
+                idx = row['순서_위험'].values[0]
+                score = row['위험 점수 평균'].values[0]
+                ax1.scatter(idx, score, color='red', zorder=5)
+                ax1.text(idx, score + 0.2, f"{dong}\n({score:.2f})", ha='center', va='bottom', color='red', fontweight='bold')
+
+        # 오른쪽 y축: 고령 인구
+        ax2 = ax1.twinx()
+        color2 = 'green'
+        ax2.plot(df_age_sorted['순서_고령'], df_age_sorted['고령인구비율'], marker='s', linestyle='--', color=color2, label='고령 인구 비율')
+        ax2.set_ylabel('고령 인구 비율 (%)', color=color2)
+        ax2.tick_params(axis='y', labelcolor=color2)
+
+        # 강조: 고령 인구
+        for dong in highlight_dongs:
+            row = df_age_sorted[df_age_sorted['읍면동'] == dong]
+            if not row.empty:
+                idx = row['순서_고령'].values[0]
+                age = row['고령인구비율'].values[0]
+                ax2.scatter(idx, age, color='red', zorder=5)
+                ax2.text(idx, age + 0.5, f"{dong}\n({age:.1f}%)", ha='center', va='bottom', color='red', fontweight='bold')
+
+        # 제목
+        plt.title('위험 점수 (좌측) / 고령 인구 비율 (우측)')
+        plt.tight_layout()
 app = App(app_ui, server, static_assets=STATIC_DIR)
 

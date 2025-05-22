@@ -19,102 +19,6 @@ def app_ui(request):
             )
         ), 
         ui.page_navbar(
-            ui.nav_panel("건물 취약도 분석",
-                ui.tags.head(
-                    ui.tags.style("""
-                        .nav-link {
-                           background-color: #f05d4e !important;
-                           color: white !important;
-                           font-weight: bold;
-                           border-radius: 4px;
-                           margin: 2px;
-                        }
-
-                        .nav-link.active {
-                            background-color: #d94d40 !important;
-                            color: #fff !important;
-                        }
-                    """)
-                ),
-                ui.layout_sidebar(
-                    ui.sidebar(
-                        ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
-                        title="필터 설정"
-                    ),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("사용자 선택에 따른 건물 분포 시각화"),
-                            ui.layout_columns(
-                                ui.input_slider("year_range", "사용승인년도(From ~ To)", min=1950, max=2025, value=(1980, 2000)),
-                                ui.input_slider("score_range", "취약 점수(From ~ To)", min=90, max=400, value=(220, 260))
-                            ),
-                            ui.output_ui("show_filtered_building_map"),
-                            full_screen=True
-                        ),
-                        ui.card(
-                            ui.card_header("전체 건물의 취약 점수 분포"),
-                            ui.output_plot("top_bottom_histogram"),  # 여기에 추가
-                            full_screen=True
-                        )
-                    ),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("건물 취약 점수 상·하위 10% 집중 분석"),
-                            ui.output_data_frame("show_summary"),
-                            full_screen=True
-                        ),
-                        ui.card(
-                            ui.card_header("읍면동별 평균 취약 점수 및 건물 특성 비교"),
-                            ui.output_data_frame("show_summary2"),
-                            full_screen=True
-                        )    
-                    ),
-                )
-            ),
-            ui.nav_panel("행정동 취약도 분석",
-                ui.layout_sidebar(
-                    ui.sidebar(
-                        ui.input_checkbox_group("region2", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
-                        title="필터 설정"
-                    ),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("행정동별 평균 점수 시각화"),
-                            ui.output_ui("show_score_map"),
-                            full_screen=True
-                        ),
-                        ui.card(
-                            ui.card_header("영천시 고령인구 비율 시각화"),
-                            ui.output_ui("show_population_map"),
-                            full_screen=True
-                        )
-                    ),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("취약 지역 겹침 분석 (취약점수 + 고령인구)"),
-                            ui.output_ui("highlight_common_regions"),
-                            full_screen=False,
-                            width=6
-                        ),
-                        ui.card(  #✅ 새로 추가된 카드
-                            ui.card_header("중첩 지역 분석"),
-                            ui.output_plot("line_total_score_by_dong")
-                        ),
-                    ),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("취약 지역 내 소방 인프라 확충에 따른 취약 점수"),
-                            ui.output_ui("show_score_map3"),
-                            full_screen=True,
-                        ), 
-                        ui.card(
-                            ui.card_header("취약 점수 전후 변화 비교"),
-                            ui.output_ui("show_score_comparison_boxes")
-                        ),   
-                    ),
-                    
-                ),    
-            ),
             ui.nav_panel("사용자 가중치 설정",
                 ui.card(
                     ui.card_header("사용자 정의 가중치 기반 위험도 지도"),
@@ -136,10 +40,99 @@ def app_ui(request):
                         ui.input_slider("score_filter", "위험 점수 (From ~ To)", min=0, max=500, value=(100, 350)),
                         ui.download_button("download_csv", "CSV 다운로드"),
                     ),
-                    ui.output_ui("show_score_map2"),
+                    ui.card(
+                        ui.card_header("사용자 설정 가중치 기반 위험 점수 지도 및 건물 목록"),
+                        ui.output_ui("show_score_map2"),
                         full_screen=True
+                    )
                 ),
             ),
+            ui.nav_panel("건물 취약도 분석",
+                ui.tags.head(
+                    ui.tags.style("""
+                        .nav-link {
+                           background-color: #f05d4e !important;
+                           color: white !important;
+                           font-weight: bold;
+                           border-radius: 4px;
+                           margin: 2px;
+                        }
+
+                        .nav-link.active {
+                            background-color: #d94d40 !important;
+                            color: #fff !important;
+                        }
+                    """)
+                ),
+                ui.layout_sidebar(
+                    ui.sidebar(
+                        ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
+                        ui.input_action_button("apply_filter", "적용"),
+                        title="필터 설정"
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("사용자 선택에 따른 건물 분포 시각화"),
+                            ui.layout_columns(
+                                ui.input_slider("year_range", "사용승인년도(From ~ To)", min=1950, max=2025, value=(1980, 2000)),
+                                ui.input_slider("score_range", "취약 점수(From ~ To)", min=90, max=400, value=(220, 260))
+                            ),
+                            ui.output_ui("show_filtered_building_map"),
+                            full_screen=True
+                        ),
+                        ui.card(
+                            ui.card_header("전체 건물의 취약 점수 분포"),
+                            ui.output_plot("top_bottom_histogram"),
+                            ui.output_data_frame("show_summary"),
+                            full_screen=True
+                        )
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("읍면동별 평균 취약 점수 및 건물 특성 비교"),
+                            ui.output_data_frame("show_summary2"),
+                            full_screen=True
+                        )    
+                    ),
+                )
+            ),
+            ui.nav_panel("행정동 취약도 분석",
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("행정동별 평균 점수 시각화"),
+                        ui.output_ui("show_score_map"),
+                        full_screen=True
+                    ),
+                    ui.card(
+                        ui.card_header("영천시 고령인구 비율 시각화"),
+                        ui.output_ui("show_population_map"),
+                        full_screen=True
+                    )
+                ),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("취약 지역 겹침 분석 (취약점수 + 고령인구)"),
+                        ui.output_ui("highlight_common_regions"),
+                        full_screen=False,
+                        width=6
+                    ),
+                    ui.card(  #✅ 새로 추가된 카드
+                        ui.card_header("중첩 지역 분석"),
+                        ui.output_plot("line_total_score_by_dong")
+                    ),
+                ),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("취약 지역 내 소방 인프라 확충에 따른 취약 점수"),
+                        ui.output_ui("show_score_map3"),
+                        full_screen=True,
+                    ), 
+                    ui.card(
+                        ui.card_header("취약 점수 전후 변화 비교"),
+                        ui.output_ui("show_score_comparison_boxes")
+                    ),   
+                ),
+        ),
             ui.nav_panel("부록1(시각화)",
                 ui.layout_columns(
                     ui.card(
@@ -414,7 +407,7 @@ def server(input, output, session):
 
     @reactive.calc
     def filtered_building_df():
-        selected = input.region()
+        selected = filtered_region()
         if "전체선택" in selected:
             return df[df["읍면동"].isin(region_list)]
         else:
@@ -573,11 +566,13 @@ def server(input, output, session):
         # 사용자 선택 불러오기
         year_min, year_max = input.year_range()
         score_min, score_max = input.score_range()
+        selected_emds = filtered_region()
     
         # 조건에 따라 필터링
         df_filtered = df[
             (df["사용승인일(년도)"].between(year_min, year_max)) &
-            (df["total_score"].between(score_min, score_max))
+            (df["total_score"].between(score_min, score_max)) &
+            (df["읍면동"].isin(selected_emds))
         ]
         total_count = len(df)
         filtered_count = len(df_filtered)
@@ -664,7 +659,45 @@ def server(input, output, session):
         df = pd.read_csv("weight.csv")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
 
+    @output
+    @render.data_frame
+    def show_weighted_table():
     
+        w = [input.w0(), input.w1(), input.w2(), input.w3(),
+             input.w4(), input.w5(), input.w6(), input.w7()]
+        year_min, year_max = input.year_filter()
+        score_min, score_max = input.score_filter()
+        structure_selected = input.structure_group()
+    
+        df_score = df[
+            (df["사용승인일(년도)"].between(year_min, year_max)) &
+            (df["total_score"].between(score_min, score_max)) &
+            (df["구조그룹"].isin(structure_selected))
+        ].copy()
+    
+        if df_score.empty:
+            return pd.DataFrame(columns=["행정동", "주소", "기존점수", "사용자가중점수"])
+    
+        df_score["weighted_score"] = (
+            df_score["건물연차점수"] * w[0] +
+            df_score["지상층수_점수"] * w[1] +
+            df_score["지하층수_점수"] * w[2] +
+            df_score["비상용승강기_점수"] * w[3] +
+            df_score["주용도_점수"] * w[4] +
+            df_score["구조코드_점수"] * w[5] +
+            df_score["소화전거리_점수"] * w[6] +
+            df_score["소방관서거리_점수"] * w[7]
+        )
+    
+        df_table = df_score[["읍면동", "대지위치", "total_score", "weighted_score"]].copy()
+        df_table = df_table.rename(columns={
+            "읍면동": "행정동",
+            "대지위치": "주소",
+            "total_score": "기존 점수",
+            "weighted_score": "사용자 가중 점수"
+        })
+    
+        return render.DataGrid(df_table, width="100%", height="600px", filters=False)
     # 🔹 사용자 정의 가중치 기반 지도
     @output
     @render.ui
@@ -753,26 +786,20 @@ def server(input, output, session):
             "total_score": "기존점수",
             "weighted_score": "사용자가중점수"
         })
-        df_table_html = df_table.to_html(index=False, escape=False)
+        
 
-        scrollable_table_html = f"""
-            <div style='max-height: 600px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; font-size: 14px;'>
-            <table style="width:100%">{df_table_html.split('<table')[1]}</table>
-            </div>
-            """
+        
 
         # 가로 배치
         return ui.TagList(
             ui.markdown(f"전체 **{total_count:,}건 중 {filtered_count:,}건**이 조건을 만족합니다."),
-            ui.HTML("<h5>📌 사용자 설정 가중치 기반 위험 점수 지도 및 건물 목록</h5>"),
             ui.layout_columns(
                 ui.card(
                     ui.HTML(m._repr_html_()),
                     full_screen=True
                 ),
                 ui.card(
-                    ui.HTML("<h5>필터링된 건물 목록</h5>"),
-                    ui.HTML(scrollable_table_html)
+                    ui.output_data_frame("show_weighted_table")
                 ),
                 col_widths=[7, 5]
             )
@@ -969,7 +996,7 @@ def server(input, output, session):
     @output
     @render.data_frame
     def show_ProjectSummary_table():
-        df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/ProjectSummary.csv", sep="\t", encoding="utf-8")
+        df = pd.read_csv("ProjectSummary.csv", sep="\t", encoding="utf-8")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
     
     @output
@@ -1129,5 +1156,21 @@ def server(input, output, session):
         # 제목
         plt.title('위험 점수 (좌측) / 고령 인구 비율 (우측)')
         plt.tight_layout()
+        
+    applied = reactive.Value(False)
+
+    @reactive.effect
+    @reactive.event(input.apply_filter)
+    def _():
+        applied.set(True)
+    
+    @reactive.calc
+    def filtered_region():
+        if not applied.get():
+            # 초기 실행 시 전체 지역 반환
+            return region_list
+        else:
+            # 적용 버튼 눌렀을 때
+            return input.region()
 app = App(app_ui, server, static_assets=STATIC_DIR)
 

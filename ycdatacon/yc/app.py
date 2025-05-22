@@ -15,266 +15,187 @@ def app_ui(request):
             ui.tags.link(rel="stylesheet", href="styles.css")
         ),
         ui.page_navbar(
-        ui.nav_panel("프로젝트 개요",
-             ui.layout_columns(
-                ui.div(
-                    ui.img(src="text1.png", style="width:100%; height:auto;"),
-                    style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
-                ),
-                ui.div(
-                    ui.img(src="text2.png", style="width:100%; height:auto;"),
-                    style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
-                ),
-                ui.div(
-                    ui.img(src="text3.png", style="width:100%; height:auto;"),
-                    style="padding: 5px; display: flex; align-items: center; justify-content: center; min-height: 120px;"
-                )
-                ),
-             ui.layout_columns(
-                    ui.div(
-                        ui.img(src="img1.png", style="width:100%"),
-                        style="padding: 5px;"
+            ui.nav_panel("1",
+                ui.layout_sidebar(
+                    ui.sidebar(
+                        ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
+                        title="필터 설정"
                     ),
-                    ui.div(
-                        ui.img(src="img2.png", style="width:100%"),
-                        style="padding: 5px;"
-                    )
-             ),
-              # 🔸 프로젝트 목적 카드
-            ui.card(
-                ui.markdown("""
-                    ### **프로젝트 목적**
-
-                    #### - 영천시의 건축물대장 데이터를 기반으로 화재에 취약한 건물의 분포를 분석  
-                    #### - 건축 구조, 층수, 접근성 등을 반영한 **행정동 단위의 화재 취약 점수**를 산출  
-                    #### - 소방서·소화전·대피소 등의 **재난 대응 인프라 우선 설치 지역**을 도출하고  
-                    ####   **인터랙티브 지도 시각화**로 행정 활용을 지원
-                """),
-                full_screen=True
-            ),
-
-            # 🔸 프로젝트 기대효과 카드
-            ui.card(
-                ui.markdown("""
-                    ### **프로젝트 기대효과**
-
-                    #### - **데이터 기반의 화재 취약 지역 파악**으로 인한 재난 대응 효율성 향상  
-                    #### - 고령 인구 밀집 지역 등 **사회적 약자 보호 강화**  
-                    #### - 소방 인프라 미흡 지역의 선제적 대응 가능  
-                    #### - 영천시 외 타 지자체에서도 활용 가능한 **분석·시각화 템플릿 모델 제시**
-                """),
-                full_screen=True
-            )
-             
-        ),
-        ui.nav_panel("시각화",
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("건물 노후도 구간별 분포 (2025년 기준)"),
-                    ui.output_ui("show_building_age_bar"),
-                    full_screen=True
-                ),
-                
-                ui.card(
-                    ui.card_header("구조별 건물 분포"),
-                    ui.output_ui("show_structure_pie"),
-                    full_screen=True
-                )
-            ),
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("주용도별 건물 분포"),
-                    ui.output_ui("show_usage_pie"),
-                    full_screen=True
-                ),
-                ui.card(
-                    ui.card_header("비상용 승강기 수 분포 (5층 이상 건물)"),
-                    ui.output_ui("show_elevator_pie"),
-                    full_screen=True
-                )
-            ),
-            ui.layout_columns(
-                # 🔵 소방서 거리 분포
-                ui.card(
-                    ui.card_header("소방서 거리 분포 시각화"),
-                    ui.output_ui("show_station_distance_plot")
-                ),
-
-                
-                # 🔵 소화전 거리 분포
-                ui.card(
-                    ui.card_header("🧯 소화전 거리 분포"),
-                    ui.output_ui("show_firehydrant_distance_plot")
-                ),
-            ),
-            ui.layout_columns(
-                # 🔴 소화전 및 소방서 위치 지도
-                ui.card(
-                    ui.card_header("🧯 소화전 및 소방서 위치 + 읍면동 경계 지도"),
-                    ui.output_ui("show_hydrant_station_map"),
-                    height="100%"
-                )
-                ,
-
-                # 📋 소방관서 테이블
-                ui.card(
-                    ui.card_header("📋 영천시 소방관서 정보"),
-                    ui.output_data_frame("show_station_table")
-                )
-            )
-        ),
-        ui.nav_panel(
-            "위험스코어",
-            ui.layout_sidebar(
-            ui.sidebar(
-                ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=["금호읍"]),
-                title="필터 설정"
-            ),
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("읍면동별 평균 점수 시각화"),
-                    ui.output_ui("show_score_map"),
-                    full_screen=True
-                ),
-                ui.card(
-                    ui.card_header("영천시 고령인구 비율 시각화"),
-                    ui.output_ui("show_population_map"),
-                    full_screen=True
-                )
-            ),
-                ui.card(
-                    ui.card_header("📊 평균 위험 점수 상·하위 건물 특성 비교"),
-                    ui.output_plot("top_bottom_histogram"),  # 여기에 추가
-                    full_screen=True
-                ),
-                ui.card(
-                    ui.card_header("📊 평균 위험 점수 상·하위 건물 특성 비교"),
-                    ui.output_data_frame("show_summary"),
-                    full_screen=True
-                
-            ),
-                ui.layout_columns(
-                ui.card(
-                    ui.card_header("📊 읍면동별 평균 위험 점수 및 건물 특성 비교"),
-                    ui.output_data_frame("show_summary2"),
-                    full_screen=True
-    )
-            ),
-            
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("읍면동별 인구 및 고령 인구 현황"),
-                    ui.output_data_frame("population_table"),
-                    full_screen=True
-                ))
-            ),
-        ),
-                
-                
-        
-        
-        
-        ui.nav_panel("결론",
-                     
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("🔍 데이터 기반 분석을 통한 화재 취약 지역 식별 및 시사점 도출"),
-                    ui.output_ui("highlight_common_regions"),
-                    full_screen=False,
-                    width=6
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("🔍 사용자 선택 기준에 따른 건물 분포 시각화"),
+                            ui.layout_columns(
+                                ui.input_slider("year_range", "사용승인년도(From ~ To)", min=1950, max=2025, value=(1980, 2000)),
+                                ui.input_slider("score_range", "취약 점수(From ~ To)", min=90, max=400, value=(220, 260))
+                            ),
+                            ui.output_ui("show_filtered_building_map"),
+                            full_screen=True
+                        ),
+                        ui.card(
+                            ui.card_header("📊 취약 점수 기반 건물 분포"),
+                            ui.output_plot("top_bottom_histogram"),  # 여기에 추가
+                            full_screen=True
+                        )
                     ),
-            
-            ui.card(  #✅ 새로 추가된 카드
-                ui.card_header("📂 프로젝트 요약"),
-                ui.output_data_frame("show_ProjectSummary_table"),
-                width=6
-            ),
-            ),
-    ui.layout_columns(
-        ui.card(
-            ui.card_header("🔍 사용자 선택 기준에 따른 건물 데이터 시각화"),
-            ui.layout_columns(
-            ui.input_slider("year_range", "사용승인년도(From ~ To)", min=1950, max=2025, value=(1980, 2000)),
-            ui.input_slider("score_range", "위험 점수(From ~ To)", min=90, max=400, value=(300, 350))),
-            ui.output_ui("show_filtered_building_map"),
-            full_screen=True
-        )
-    ),
-    ui.card(
-        ui.card_header("📈 조건 변화에 따른 점수 변화 시뮬레이션"),
-        ui.output_ui("show_score_map3"),
-             full_screen=True,
-            ),
-    )
-        ,
-        
-        
-        
-        ui.nav_panel("부록",
-            # 🔹 변수 정의 + 데이터 설명
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("📊 변수 정의"),
-                    ui.output_data_frame("show_variable_table")
-                ),
-                ui.card(
-                    ui.card_header("📂 데이터 설명"),
-                    ui.output_data_frame("show_data_table")
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("📊 건물 취약 점수 상·하위 10% 집중 분석"),
+                            ui.output_data_frame("show_summary"),
+                            full_screen=True
+                        ),
+                        ui.card(
+                            ui.card_header("📊 읍면동별 평균 취약 점수 및 건물 특성 비교"),
+                            ui.output_data_frame("show_summary2"),
+                            full_screen=True
+                        )    
+                    ),
                 )
             ),
-
-            # 🔹 점수 기준표 + 가중치 기준표
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("📐 점수 산출 기준표"),
-                    ui.output_data_frame("show_score_table"),
-                    full_screen=True
-                ),
-                ui.card(
-                    ui.card_header("📐 가중치 산출 기준표"),
-                    ui.output_data_frame("show_weight_table"),
-                    full_screen=True
-                )
-            ),
-
-            # 🔹 사용자 정의 가중치 지도
-            ui.card(
-                ui.card_header("⚙️ 사용자 정의 가중치 기반 위험도 지도"),
-
-                ui.layout_columns(
-                    ui.input_slider("w0", "① 건물연차 점수", min=0, max=25, value=25),
-                    ui.input_slider("w1", "② 지상층수", min=0, max=25, value=9),
-                    ui.input_slider("w2", "③ 지하층수", min=0, max=25, value=11),
-                    ui.input_slider("w3", "④ 비상용 승강기", min=0, max=25, value=5),
-                ),
-                ui.layout_columns(
-                    ui.input_slider("w4", "⑤ 주용도", min=0, max=25, value=20),
-                    ui.input_slider("w5", "⑥ 구조 재질", min=0, max=25, value=15),
-                    ui.input_slider("w6", "⑦ 소화전 거리", min=0, max=25, value=5),
-                    ui.input_slider("w7", "⑧ 소방관서 거리", min=0, max=25, value=10),
-                ),
-                
-                ui.layout_columns(
-                    ui.input_checkbox_group("structure_group", "구조 그룹 선택", choices=df["구조그룹"].dropna().unique().tolist(), selected=df["구조그룹"].dropna().unique().tolist()),
-                    ui.input_slider("year_filter", "건축연도 (From ~ To)", min=1950, max=2025, value=(1980, 2020)),
-                    ui.input_slider("score_filter", "위험 점수 (From ~ To)", min=0, max=500, value=(100, 350)),
+            ui.nav_panel("2",
+                ui.layout_sidebar(
+                    ui.sidebar(
+                        ui.input_checkbox_group("region2", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
+                        title="필터 설정"
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("행정동별 평균 점수 시각화"),
+                            ui.output_ui("show_score_map"),
+                            full_screen=True
+                        ),
+                        ui.card(
+                            ui.card_header("영천시 고령인구 비율 시각화"),
+                            ui.output_ui("show_population_map"),
+                            full_screen=True
+                        )
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("📍 취약 지역 겹침 분석 (취약점수 + 고령인구)"),
+                            ui.output_ui("highlight_common_regions"),
+                            full_screen=False,
+                            width=6
+                        ),
+                        ui.card(  #✅ 새로 추가된 카드
+                            ui.card_header("🗺️ 중첩 지역 분석"),
+                            
+                        ),
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("📈 조건 변화에 따른 점수 변화 시뮬레이션"),
+                            ui.output_ui("show_score_map3"),
+                            full_screen=True,
+                        ), 
+                        ui.card(  #✅ 새로 추가된 카드
+                            ui.card_header("📂 시뮬레이션 요약"),
+                            
+                        ),   
+                    ),
                     
-                    ui.download_button("download_csv", "📥 CSV 다운로드"),
-                ),
-                ui.output_ui("show_score_map2"),
-                    full_screen=True
-                ),
-                    ),
-        title=ui.tags.div(
-            ui.tags.span(
-                "🧯 영천시 화재 취약건물 분석",
-                id="go_home_title",  # ← 클릭할 대상
-                style="cursor:pointer; color:#004080; font-weight:bold;"
+                ),    
             ),
-            ui.input_action_button("go_home", "", style="display:none;")
-        ),
-        id="main_tab",  # ← 페이지 ID
-        selected="프로젝트 개요",
+            ui.nav_panel("3",
+                ui.card(
+                    ui.card_header("⚙️ 사용자 정의 가중치 기반 위험도 지도"),
+                    ui.layout_columns(
+                        ui.input_slider("w0", "① 건물연차 점수", min=0, max=25, value=25),
+                        ui.input_slider("w1", "② 지상층수", min=0, max=25, value=9),
+                        ui.input_slider("w2", "③ 지하층수", min=0, max=25, value=11),
+                        ui.input_slider("w3", "④ 비상용 승강기", min=0, max=25, value=5),
+                    ),
+                    ui.layout_columns(
+                        ui.input_slider("w4", "⑤ 주용도", min=0, max=25, value=20),
+                        ui.input_slider("w5", "⑥ 구조 재질", min=0, max=25, value=15),
+                        ui.input_slider("w6", "⑦ 소화전 거리", min=0, max=25, value=5),
+                        ui.input_slider("w7", "⑧ 소방관서 거리", min=0, max=25, value=10),
+                    ),
+                    ui.layout_columns(
+                        ui.input_checkbox_group("structure_group", "구조 그룹 선택", choices=df["구조그룹"].dropna().unique().tolist(), selected=df["구조그룹"].dropna().unique().tolist()),
+                        ui.input_slider("year_filter", "건축연도 (From ~ To)", min=1950, max=2025, value=(1980, 2020)),
+                        ui.input_slider("score_filter", "위험 점수 (From ~ To)", min=0, max=500, value=(100, 350)),
+                        ui.download_button("download_csv", "📥 CSV 다운로드"),
+                    ),
+                    ui.output_ui("show_score_map2"),
+                        full_screen=True
+                ),
+            ),
+            ui.nav_panel("부록1",
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("건물 노후도 구간별 분포 (2025년 기준)"),
+                        ui.output_ui("show_building_age_bar"),
+                        full_screen=True
+                        ),
+
+                    ui.card(
+                        ui.card_header("구조별 건물 분포"),
+                        ui.output_ui("show_structure_pie"),
+                        full_screen=True
+                        )
+                    ),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("주용도별 건물 분포"),
+                        ui.output_ui("show_usage_pie"),
+                        full_screen=True
+                    ),
+                    ui.card(
+                        ui.card_header("비상용 승강기 수 분포 (5층 이상 건물)"),
+                        ui.output_ui("show_elevator_pie"),
+                        full_screen=True
+                    )
+                ),
+                ui.layout_columns(
+                # 🔵 소방서 거리 분포
+                    ui.card(
+                        ui.card_header("소방서 거리 분포 시각화"),
+                        ui.output_ui("show_station_distance_plot")
+                    ),
+                    ui.card(
+                        ui.card_header("🧯 소화전 거리 분포"),
+                        ui.output_ui("show_firehydrant_distance_plot")
+                    ),
+                ),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("🧯 소화전 및 소방서 위치 + 읍면동 경계 지도"),
+                        ui.output_ui("show_hydrant_station_map"),
+                        height="100%"
+                    ),
+                    ui.card(
+                        ui.card_header("📋 영천시 소방관서 정보"),
+                        ui.output_data_frame("show_station_table")
+                    )
+                )
+            ),
+            ui.nav_panel("부록2",
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("📊 변수 정의"),
+                        ui.output_data_frame("show_variable_table")
+                    ),
+                    ui.card(
+                        ui.card_header("📂 데이터 설명"),
+                        ui.output_data_frame("show_data_table")
+                    )
+                ),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("📐 점수 산출 기준표"),
+                        ui.output_data_frame("show_score_table"),
+                        full_screen=True
+                    ),
+                    ui.card(
+                        ui.card_header("📐 가중치 산출 기준표"),
+                        ui.output_data_frame("show_weight_table"),
+                        full_screen=True
+                    )
+                ),
+            ),
+        
+        title="🔥 영천시 화재 취약건물 분석",
+                
         )
     )
     
@@ -487,7 +408,6 @@ def server(input, output, session):
             most_common_purpose = df_subset['주용도코드명'].mode().iloc[0] if not df_subset['주용도코드명'].mode().empty else None
             most_common_material = df_subset['구조코드명'].mode().iloc[0] if not df_subset['구조코드명'].mode().empty else None
             most_common_region = df_subset['읍면동'].mode().iloc[0] if not df_subset['읍면동'].mode().empty else None
-            avg_height = round(df_subset[df_subset['높이(m)'] > 0]['높이(m)'].mean(), 2)
             avg_hydrant_dist = round(df_subset['소화전거리'].mean(), 2)
             avg_firestation_dist = round(df_subset['소방서거리'].mean(), 2)
             avg_total_score = round(df_subset['total_score'].mean(), 2)
@@ -498,7 +418,6 @@ def server(input, output, session):
                 most_common_purpose,
                 most_common_material,
                 most_common_region,
-                avg_height,
                 avg_hydrant_dist,
                 avg_firestation_dist,
                 avg_total_score
@@ -520,18 +439,17 @@ def server(input, output, session):
         ]
 
         columns = [
-            "구분", "최빈 사용 승인 연도", "최빈 주용도", "최빈 건물 구조", "최다 출현 읍면동",
-            "건물 높이 평균", "소화전 거리 평균", "소방관서 거리 평균", "위험 점수 평균"
+            "구분", "최빈 사용 승인 연도", "최빈 주용도", "최빈 건물 구조", "최다 출현 읍면동", "소화전 거리 평균", "소방관서 거리 평균", "위험 점수 평균"
         ]
 
         summary_df = pd.DataFrame(summary_data, columns=columns)
-        return render.DataGrid(summary_df, width="100%", height="130px", filters=False)
+        return render.DataGrid(summary_df, width="100%", height="200px", filters=False)
 
     @output
     @render.ui
     def show_score_map():
         selected = input.region()
-        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+        gdf = gpd.read_file("old.geojson")
 
         df_score = df[df["읍면동"].isin(selected)].copy()
         df_score_grouped = df_score.groupby("읍면동")["total_score"].mean().reset_index()
@@ -549,11 +467,11 @@ def server(input, output, session):
         m = folium.Map(location=[center.y, center.x], zoom_start=10)
 
         def get_score_color(score):
-            if score >= min_score + step * 4: return "#d73027"
-            elif score >= min_score + step * 3: return "#fc8d59"
-            elif score >= min_score + step * 2: return "#fee08b"
-            elif score >= min_score + step * 1: return "#d9ef8b"
-            else: return "#91cf60"
+            if score >= min_score + step * 4: return "#bd0026"
+            elif score >= min_score + step * 3: return "#f03b20"
+            elif score >= min_score + step * 2: return "#fd8d3c"
+            elif score >= min_score + step * 1: return "#fecc5c"
+            else: return "#ffffb2"
 
         folium.GeoJson(
             gdf,
@@ -578,7 +496,7 @@ def server(input, output, session):
     def show_population_map():
         selected = input.region()
         gdf = gpd.read_file("old.geojson")
-        df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/영천인구.csv")
+        df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/yc_pop.csv")
         df_pop = df_pop.rename(columns={"읍면동": "EMD_KOR_NM"})
         df_pop = df_pop[df_pop["EMD_KOR_NM"] != "합계"]
         df_pop["총인구수"] = df_pop["총인구수"].astype(str).str.replace(",", "").astype(float)
@@ -596,11 +514,12 @@ def server(input, output, session):
             name="고령인구 비율 시각화",
             style_function=lambda feature: {
                 'fillColor': (
-                    "#BB0C0C" if feature['properties'].get('고령인구비율(%)', 0) >= 40 else
-                    '#BD0026' if feature['properties'].get('고령인구비율(%)', 0) >= 30 else
-                    "#F57E00" if feature['properties'].get('고령인구비율(%)', 0) >= 20 else
-                    "#E1D604" if feature['properties'].get('고령인구비율(%)', 0) >= 10 else
-                    "#EDD1C1"
+                    "#810f7c" if feature['properties'].get('고령인구비율(%)', 0) >= 50 else
+                    '#8856a7' if feature['properties'].get('고령인구비율(%)', 0) >= 45 else
+                    "#8c96c6" if feature['properties'].get('고령인구비율(%)', 0) >= 40 else
+                    "#9ebcda" if feature['properties'].get('고령인구비율(%)', 0) >= 30 else
+                    "#e0ecf4"
+
                 ),
 
                 'color': 'black',
@@ -627,7 +546,7 @@ def server(input, output, session):
     @render.ui
     def show_filtered_building_map():
         # GeoJSON 로딩 (초기 1회)
-        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+        gdf = gpd.read_file("old.geojson")
         gdf = gdf.to_crs(epsg=4326)
     
         # 사용자 선택 불러오기
@@ -657,7 +576,7 @@ def server(input, output, session):
         except Exception:
             center_coords = [36.01, 128.9426]  # 기본값
     
-        m = folium.Map(location=center_coords, zoom_start=11)
+        m = folium.Map(location=center_coords, zoom_start=10)
     
         # GeoJSON 시각화
         folium.GeoJson(
@@ -703,25 +622,25 @@ def server(input, output, session):
     @output
     @render.data_frame
     def show_variable_table():
-        df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/variable.csv", encoding="euc-kr")
+        df = pd.read_csv("variable.csv", encoding="euc-kr")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
     @render.data_frame
     def show_data_table():
-        df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/data.csv")
+        df = pd.read_csv("data.csv")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
     @render.data_frame
     def show_score_table():
-        df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/score.csv", encoding="euc-kr")
+        df = pd.read_csv("score.csv", encoding="euc-kr")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
     @render.data_frame
     def show_weight_table():
-        df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/weight.csv")
+        df = pd.read_csv("weight.csv")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     
@@ -737,7 +656,7 @@ def server(input, output, session):
              input.w4(), input.w5(), input.w6(), input.w7()]
 
         # ✅ GeoJSON 불러오기
-        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+        gdf = gpd.read_file("old.geojson")
 
         # ✅ 필터링된 건물 데이터
         df_score = df[df["읍면동"].isin(selected)].copy()
@@ -830,7 +749,6 @@ def server(input, output, session):
         most_common_year = df_subset['사용승인일(년도)'].mode().iloc[0] if not df_subset['사용승인일(년도)'].mode().empty else None
         most_common_purpose = df_subset['주용도코드명'].mode().iloc[0] if not df_subset['주용도코드명'].mode().empty else None
         most_common_material = df_subset['구조코드명'].mode().iloc[0] if not df_subset['구조코드명'].mode().empty else None
-        avg_height = round(df_subset[df_subset['높이(m)'] > 0]['높이(m)'].mean(), 2)
         avg_hydrant_dist = round(df_subset['소화전거리'].mean(), 2)
         avg_firestation_dist = round(df_subset['소방서거리'].mean(), 2)
         avg_total_score = round(df_subset['total_score'].mean(), 2)
@@ -840,7 +758,6 @@ def server(input, output, session):
             most_common_year,
             most_common_purpose,
             most_common_material,
-            avg_height,
             avg_hydrant_dist,
             avg_firestation_dist,
             avg_total_score
@@ -857,8 +774,7 @@ def server(input, output, session):
         ]
 
         columns = [
-            "구분", "최빈 사용 승인 연도", "최빈 주용도", "최빈 건물 구조",
-            "건물 높이 평균", "소화전 거리 평균", "소방관서 거리 평균", "위험 점수 평균"
+            "구분", "최빈 사용 승인 연도", "최빈 주용도", "최빈 건물 구조", "소화전 거리 평균", "소방관서 거리 평균", "위험 점수 평균"
         ]
         return pd.DataFrame(summary_data, columns=columns)
 
@@ -876,7 +792,7 @@ def server(input, output, session):
         import folium
 
         # ✅ GeoJSON 전체 불러오기
-        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson").to_crs(epsg=4326)
+        gdf = gpd.read_file("old.geojson").to_crs(epsg=4326)
 
         # ✅ 공통 지역 리스트 가져오기
         common_regions = common_df["읍면동"].unique().tolist()
@@ -920,7 +836,7 @@ def server(input, output, session):
         ).add_to(m)
 
         return ui.TagList(
-            ui.markdown("📌 겹치는 지역 2곳만 **빨간색**으로 강조한 전체 지도입니다."),
+            ui.markdown("📌 중첩된 2개 지역만 **빨간색**으로 강조하여 나타낸 전체 지도입니다."),
             ui.HTML(m._repr_html_())
         )
     @reactive.Effect
@@ -967,8 +883,8 @@ def server(input, output, session):
         # 상위 10% 파랑
         ax.hist(top_10["total_score"], bins=bin_edges, alpha=0.7, color="royalblue", label="상위 10%")
     
-        ax.set_title("전체 위험 점수 분포 및 상·하위 10% 강조")
-        ax.set_xlabel("위험 점수 (total_score)")
+        ax.set_title("취약 점수 분포")
+        ax.set_xlabel("취약 점수 (total_score)")
         ax.set_ylabel("건물 수")
         ax.legend()
     
@@ -984,7 +900,7 @@ def server(input, output, session):
     def show_score_map3():
         selected = ['금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면', '고경면',
        '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
-        gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/old.geojson")
+        gdf = gpd.read_file("old.geojson")
 
         # ✅ df 대신 df_fake 사용
         df_score = df_fake[df_fake["읍면동"].isin(selected)].copy()
@@ -1000,7 +916,7 @@ def server(input, output, session):
         step = (max_score - min_score) / 5 if max_score != min_score else 1
 
         center = gdf.geometry.unary_union.centroid
-        m = folium.Map(location=[center.y, center.x], zoom_start=11)
+        m = folium.Map(location=[center.y, center.x], zoom_start=10)
 
         def get_score_color(score):
             if score >= min_score + step * 4: return "#d73027"

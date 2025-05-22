@@ -19,7 +19,7 @@ plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 # ✅ 영천 인구 데이터 불러오기
-df_population = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/영천인구.csv")
+df_population = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/yc_pop.csv")
 
 # 총인구수 전처리
 df_population["총인구수"] = (
@@ -44,15 +44,11 @@ df_population["고령인구"] = (
 # 고령인구비율 계산 (소수점 두 자리까지 반올림)
 df_population["고령인구비율"] = (df_population["고령인구"] / df_population["총인구수"] * 100).round(2)
 
-# df_building = pd.read_csv("C:/Users/USER/Desktop/ycdatacon/building.csv", low_memory=False)
-
-
 
 
 
 
 df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/df_final.csv")
-df.columns
 # ----------------------------------------
 # df['위험등급'] = pd.qcut(df['total_score'], q=3, labels=["낮음", "중간", "높음"])
 
@@ -91,7 +87,7 @@ df['주용도코드명']
 
 
 
-stations = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/FireStationsAmbulances.csv",encoding='cp949')
+stations = pd.read_csv("FireStationsAmbulances.csv",encoding='cp949')
 
 # 2. "영천"으로 시작하고, 위경도 결측치 없는 행만 필터링
 stations_filtered = stations[
@@ -193,7 +189,7 @@ def create_distance_hist_image():
 
 
 
-hydrants = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/FireHydrants.csv")
+hydrants = pd.read_csv("FireHydrants.csv")
 
 # 2. '영천' 소화전 필터링
 hydrants_filtered = hydrants[hydrants["소화전 고유코드"].astype(str).str.contains("영천")].copy()
@@ -268,7 +264,7 @@ def create_hydrant_station_map():
 
     # 🔷 읍면동 경계 (shp -> GeoDataFrame)
     
-    gdf = gpd.read_file("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/old.geojson")
+    gdf = gpd.read_file("old.geojson")
     
     gdf = gdf.to_crs(epsg=4326)  # 지도 좌표계로 맞추기
 

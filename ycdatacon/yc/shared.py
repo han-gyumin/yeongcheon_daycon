@@ -98,7 +98,10 @@ stations_filtered = stations[
 
 stations_fake = stations_filtered.copy()
 stations_fake.loc[len(stations_fake)] = [
-    82, "영천소방서", "가상센터", np.nan, "123마1234", 36.0794113, 129.0182276
+    82, "영천소방서", "임고면가상센터", np.nan, "123마1234", 36.03993, 128.9848
+]
+stations_fake.loc[len(stations_fake)] = [
+    83, "영천소방서", "화북면가상센터", np.nan, "123마1235", 36.01903, 128.8532
 ]
 
 

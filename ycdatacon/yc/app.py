@@ -12,9 +12,12 @@ region_list = df_population["읍면동"].unique().tolist()
 # UI 구성
 def app_ui(request):
     return ui.page_fluid(
-        # ui.tags.head(
-        #     ui.tags.link(rel="stylesheet", href="styles.css")
-        # ),
+        ui.tags.head(
+            ui.tags.link(
+                href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/journal/bootstrap.min.css",
+                rel="stylesheet"
+            )
+        ), 
         ui.page_navbar(
             ui.nav_panel("1",
                 ui.layout_sidebar(

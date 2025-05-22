@@ -5,7 +5,8 @@ from shinyswatch import theme
 import folium
 import plotly.express as px
 import os
-from shared import df_population, df,create_distance_hist_image, common_df,df_fake,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered
+from shared import df_population, df,create_distance_hist_image, common_df,df_fake,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered,top5_old,top5_score
+
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "www")
 region_list = df_population["읍면동"].unique().tolist()
 
@@ -19,7 +20,7 @@ def app_ui(request):
             )
         ), 
         ui.page_navbar(
-            ui.nav_panel("사용자 가중치 설정",
+            ui.nav_panel("",
                 ui.card(
                     ui.card_header("사용자 정의 가중치 기반 위험도 지도"),
                     ui.layout_columns(
@@ -38,7 +39,7 @@ def app_ui(request):
                         ui.input_checkbox_group("structure_group", "구조 그룹 선택", choices=df["구조그룹"].dropna().unique().tolist(), selected=df["구조그룹"].dropna().unique().tolist()),
                         ui.input_slider("year_filter", "건축연도 (From ~ To)", min=1950, max=2025, value=(1980, 2020)),
                         ui.input_slider("score_filter", "위험 점수 (From ~ To)", min=0, max=500, value=(100, 350)),
-                        ui.download_button("download_csv", "CSV 다운로드"),
+                        ui.download_button("download_csv", "CSV 다운로드",style="background-color: #ec766e; color: white;"),
                     ),
                     ui.card(
                         ui.card_header("사용자 설정 가중치 기반 위험 점수 지도 및 건물 목록"),
@@ -67,7 +68,7 @@ def app_ui(request):
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.input_checkbox_group("region", "읍면동 선택", choices=region_list, selected=["금호읍","청통면","신녕면","화산면","화북면","화남면","자양면","임고면","고경면","북안면","대창면","동부동","중앙동","서부동","완산동","남부동"]),
-                        ui.input_action_button("apply_filter", "적용"),
+                        ui.input_action_button("apply_filter", "적용",style="background-color: #ec766e; color: white;"),
                         title="필터 설정"
                     ),
                     ui.layout_columns(
@@ -92,7 +93,8 @@ def app_ui(request):
                             ui.card_header("읍면동별 평균 취약 점수 및 건물 특성 비교"),
                             ui.output_data_frame("show_summary2"),
                             full_screen=True
-                        )    
+                        )
+                            
                     ),
                 )
             ),
@@ -104,31 +106,39 @@ def app_ui(request):
                         full_screen=True
                     ),
                     ui.card(
-                        ui.card_header("영천시 고령인구 비율 시각화"),
-                        ui.output_ui("show_population_map"),
-                        full_screen=True
-                    )
+                            ui.output_ui("show_top_score_boxes")
+                    ),
                 ),
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("취약 지역 겹침 분석 (취약점수 + 고령인구)"),
+                        ui.card_header("영천시 고령인구 비율 시각화"),
+                        ui.output_ui("show_population_map"),
+                        full_screen=True
+                    ),
+                    ui.card(
+                            ui.output_ui("show_top_old_boxes")
+                    ),
+                ),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("화재 취약 점수와 고령 인구 비율이 모두 높은 지역"),
                         ui.output_ui("highlight_common_regions"),
                         full_screen=False,
                         width=6
                     ),
                     ui.card(  #✅ 새로 추가된 카드
-                        ui.card_header("중첩 지역 분석"),
+                        ui.card_header("화재 취약 점수와 고령 인구 비율이 모두 높은 지역"),
                         ui.output_plot("line_total_score_by_dong")
                     ),
                 ),
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("취약 지역 내 소방 인프라 확충에 따른 취약 점수"),
+                        ui.card_header("취약 지역 내 소방 인프라 개선 결과"),
                         ui.output_ui("show_score_map3"),
                         full_screen=True,
                     ), 
                     ui.card(
-                        ui.card_header("취약 점수 전후 변화 비교"),
+                        ui.card_header("취약 지역내 소방서 설치 전후 변화"),
                         ui.output_ui("show_score_comparison_boxes")
                     ),   
                 ),
@@ -207,7 +217,7 @@ def app_ui(request):
                 ),
             ),
         
-        title="🔥 영천시 화재 취약건물 분석",
+        title=ui.tags.a("🔥 영천시 화재 취약건물 분석", href="/", style="text-decoration:none; color:inherit;"),
         theme = theme.journal
                 
         )
@@ -599,10 +609,10 @@ def server(input, output, session):
             gdf_filtered,
             name="조건 만족 읍면동",
             style_function=lambda feature: {
-                "fillColor": "#3186cc",
+                "fillColor": "#c2c2c1",
                 "color": "black",
                 "weight": 1,
-                "fillOpacity": 0.4,
+                "fillOpacity": 0.6,
             },
             tooltip=folium.GeoJsonTooltip(
                 fields=["EMD_KOR_NM"],
@@ -618,7 +628,7 @@ def server(input, output, session):
                     location=(row["위도"], row["경도"]),
                     radius=4,
                     fill=True,
-                    fill_color="red",
+                    fill_color="#ec766e",
                     color=None,
                     fill_opacity=0.3,
                     popup=f"{row['읍면동']} | 위험도: {row['total_score']}"
@@ -940,7 +950,6 @@ def server(input, output, session):
         ).add_to(m)
 
         return ui.TagList(
-            ui.markdown("중첩된 2개 지역만 **빨간색**으로 강조하여 나타낸 전체 지도입니다."),
             ui.HTML(m._repr_html_())
         )
     @reactive.Effect
@@ -1083,7 +1092,7 @@ def server(input, output, session):
                     </div>
                     """),
                 showcase=fire_icon,
-                theme="danger" if row["후"] > row["전"] else "danger"
+                theme="danger" if row["후"] > row["전"] else "success"
             )
             boxes.append(box)
 
@@ -1099,6 +1108,72 @@ def server(input, output, session):
         .rename(columns={'total_score': '위험 점수 평균'})
         )
         return grouped
+    
+    @render.ui
+    def show_top_score_boxes():
+        df_top4 = top5_score.head(4)
+        return [  # 첫 번째 행
+                ui.value_box(
+                    title=df_top4.iloc[0]["읍면동"],
+                    value=f"{df_top4.iloc[0]['total_score']:.2f}",
+                    showcase=ui.img(src="dangerdark.png", height="40px"),
+                    theme="",
+                    style="font-size: 1.4rem; min-height: 130px;"
+                ),
+                ui.value_box(
+                    title=df_top4.iloc[1]["읍면동"],
+                    value=f"{df_top4.iloc[1]['total_score']:.2f}",
+                    showcase=ui.img(src="danger.png", height="40px"),
+                    theme="",
+                    style="font-size: 1.4rem; min-height: 130px;"
+                ),
+                ui.value_box(
+                    title=df_top4.iloc[2]["읍면동"],
+                    value=f"{df_top4.iloc[2]['total_score']:.2f}",
+                    showcase=ui.img(src="dangerdark.png", height="40px"),
+                    theme="",
+                    style="font-size: 1.4rem; min-height: 130px;"
+                ),
+                ui.value_box(
+                    title=df_top4.iloc[3]["읍면동"],
+                    value=f"{df_top4.iloc[3]['total_score']:.2f}",
+                    showcase=ui.img(src="danger.png", height="40px"),
+                    theme="",
+                    style="font-size: 1.4rem; min-height: 130px;"
+                )
+        ]
+
+    
+    @render.ui
+    def show_top_old_boxes():
+        df_top4_old = top5_old.head(4)
+        return [
+                ui.value_box(
+                    title=df_top4_old.iloc[0]["읍면동"],
+                    value=f"{df_top4_old.iloc[0]['고령인구비율']:.2f}%",
+                    showcase=ui.img(src="old.png", height="40px"),
+                    theme="purple"
+                ),
+                ui.value_box(
+                    title=df_top4_old.iloc[1]["읍면동"],
+                    value=f"{df_top4_old.iloc[1]['고령인구비율']:.2f}%",
+                    showcase=ui.img(src="olddark.png", height="40px"),
+                    theme="purple"
+                ),
+                ui.value_box(
+                    title=df_top4_old.iloc[2]["읍면동"],
+                    value=f"{df_top4_old.iloc[2]['고령인구비율']:.2f}%",
+                    showcase=ui.img(src="olddark.png", height="40px"),
+                    theme="purple"
+                ),
+                ui.value_box(
+                    title=df_top4_old.iloc[3]["읍면동"],
+                    value=f"{df_top4_old.iloc[3]['고령인구비율']:.2f}%",
+                    showcase=ui.img(src="old.png", height="40px"),
+                    theme="purple"
+                )
+        ]
+
     
     @output
     @render.plot
@@ -1119,12 +1194,12 @@ def server(input, output, session):
         df_age_sorted['순서_고령'] = df_age_sorted.index
 
         # 플롯 그리기
-        fig, ax1 = plt.subplots(figsize=(14, 6))
+        fig, ax1 = plt.subplots(figsize=(9, 5))
 
         # 왼쪽 y축: 위험 점수
         color1 = 'skyblue'
         ax1.plot(df_score_sorted['순서_위험'], df_score_sorted['위험 점수 평균'], marker='o', color=color1, label='위험 점수 평균')
-        ax1.set_ylabel('위험 점수 평균', color=color1)
+        ax1.set_ylabel('위험 점수 평균', color=color1,fontsize=14)
         ax1.tick_params(axis='y', labelcolor=color1)
         ax1.set_xticks(df_score_sorted['순서_위험'])
 
@@ -1141,7 +1216,7 @@ def server(input, output, session):
         ax2 = ax1.twinx()
         color2 = 'green'
         ax2.plot(df_age_sorted['순서_고령'], df_age_sorted['고령인구비율'], marker='s', linestyle='--', color=color2, label='고령 인구 비율')
-        ax2.set_ylabel('고령 인구 비율 (%)', color=color2)
+        ax2.set_ylabel('고령 인구 비율 (%)', color=color2,fontsize=14)
         ax2.tick_params(axis='y', labelcolor=color2)
 
         # 강조: 고령 인구
@@ -1158,19 +1233,21 @@ def server(input, output, session):
         plt.tight_layout()
         
     applied = reactive.Value(False)
-
+    applied_region = reactive.Value(region_list)  # 초기값은 전체 선택
+    
     @reactive.effect
     @reactive.event(input.apply_filter)
     def _():
         applied.set(True)
+        applied_region.set(input.region())  # 버튼 눌렀을 때만 업데이트
     
     @reactive.calc
     def filtered_region():
-        if not applied.get():
-            # 초기 실행 시 전체 지역 반환
-            return region_list
-        else:
-            # 적용 버튼 눌렀을 때
-            return input.region()
+        return applied_region.get()
+    
+    @reactive.Effect
+    @reactive.event(input.go_home)
+    def _():
+        session.send_input("main_tab", "사용자 가중치 설정")
 app = App(app_ui, server, static_assets=STATIC_DIR)
 

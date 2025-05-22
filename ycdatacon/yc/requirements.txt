@@ -6,3 +6,4 @@ seaborn
 folium
 plotly
 geopandas
+shinyswatch

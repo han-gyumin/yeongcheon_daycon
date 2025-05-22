@@ -6,6 +6,8 @@ import pandas as pd
 import pandas as pd
 import numpy as np
 
+import matplotlib as mpl
+import matplotlib.font_manager as fm
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -13,13 +15,14 @@ import base64
 from io import BytesIO
 import geopandas as gpd
 
-plt.rcParams['font.family'] = 'Malgun Gothic'
+app_dir = Path(__file__).parent
+font_path = app_dir / "MaruBuri-Regular.ttf"
+font_prop = fm.FontProperties(fname=font_path)
+mpl.rcParams["axes.unicode_minus"] = False
 
-# 2. 마이너스 기호 깨짐 방지
-plt.rcParams['axes.unicode_minus'] = False
 
 # ✅ 영천 인구 데이터 불러오기
-df_population = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/yc_pop.csv")
+df_population = pd.read_csv("yc_pop.csv")
 
 # 총인구수 전처리
 df_population["총인구수"] = (
@@ -48,7 +51,7 @@ df_population["고령인구비율"] = (df_population["고령인구"] / df_popula
 
 
 
-df = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/df_final.csv")
+df = pd.read_csv("df_final.csv")
 # ----------------------------------------
 # df['위험등급'] = pd.qcut(df['total_score'], q=3, labels=["낮음", "중간", "높음"])
 
@@ -172,9 +175,9 @@ df_fake["total_score"] = sum(df_fake[col] * weight for col, weight in weights.it
 def create_distance_hist_image():
     fig = plt.figure(figsize=(10, 6))
     sns.histplot(df["소방서거리"], bins=50, kde=True, color='salmon', edgecolor='black')
-    plt.title("소방서 거리 분포")
-    plt.xlabel("거리 (m)")
-    plt.ylabel("건물 수")
+    plt.title("소방서 거리 분포", fontproperties=font_prop)
+    plt.xlabel("거리 (m)", fontproperties=font_prop)
+    plt.ylabel("건물 수", fontproperties=font_prop)
     plt.grid(True)
 
     # 이미지 버퍼에 저장
@@ -223,9 +226,9 @@ df["소화전거리"] = df.apply(
 def create_firehydrant_distance_plot():
     fig = plt.figure(figsize=(10, 6))
     sns.histplot(df['소화전거리'], bins=50, kde=True, color='skyblue', edgecolor='black')
-    plt.title("소화전 거리 분포")
-    plt.xlabel("소화전거리 (m)")
-    plt.ylabel("건물 수")
+    plt.title("소화전 거리 분포", fontproperties=font_prop)
+    plt.xlabel("소화전거리 (m)", fontproperties=font_prop)
+    plt.ylabel("건물 수", fontproperties=font_prop)
     plt.grid(True)
 
     # 이미지 저장 → 메모리 → base64 인코딩

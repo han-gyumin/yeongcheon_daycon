@@ -5,7 +5,8 @@ from shinyswatch import theme
 import folium
 import plotly.express as px
 import os
-from shared import df_population, df,create_distance_hist_image, common_df,df_fake,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered,top5_old,top5_score
+import matplotlib.ticker as ticker
+from shared import df_population, df,font_prop,create_distance_hist_image, common_df,df_fake,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered,top5_old,top5_score
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "www")
 region_list = df_population["읍면동"].unique().tolist()
@@ -31,7 +32,7 @@ def app_ui(request):
                     ),
                     ui.layout_columns(
                         ui.input_slider("w4", "⑤ 주용도", min=0, max=25, value=20),
-                        ui.input_slider("w5", "⑥ 구조 재질", min=0, max=25, value=15),
+                        ui.input_slider("w5", "⑥ 건축 자재", min=0, max=25, value=15),
                         ui.input_slider("w6", "⑦ 소화전 거리", min=0, max=25, value=5),
                         ui.input_slider("w7", "⑧ 소방관서 거리", min=0, max=25, value=10),
                     ),
@@ -431,8 +432,8 @@ def server(input, output, session):
             most_common_purpose = df_subset['주용도코드명'].mode().iloc[0] if not df_subset['주용도코드명'].mode().empty else None
             most_common_material = df_subset['구조코드명'].mode().iloc[0] if not df_subset['구조코드명'].mode().empty else None
             most_common_region = df_subset['읍면동'].mode().iloc[0] if not df_subset['읍면동'].mode().empty else None
-            avg_hydrant_dist = round(df_subset['소화전거리'].mean(), 2)
-            avg_firestation_dist = round(df_subset['소방서거리'].mean(), 2)
+            avg_hydrant_dist = f"{round(df_subset['소화전거리'].mean(), 2):,}"
+            avg_firestation_dist = f"{round(df_subset['소방서거리'].mean(), 2):,}"
             avg_total_score = round(df_subset['total_score'].mean(), 2)
 
             return [
@@ -519,7 +520,7 @@ def server(input, output, session):
     def show_population_map():
         selected = input.region()
         gdf = gpd.read_file("old.geojson")
-        df_pop = pd.read_csv("C:/Users/USER/Desktop/yeongcheon_daycon/ycdatacon/yc/yc_pop.csv")
+        df_pop = pd.read_csv("yc_pop.csv")
         df_pop = df_pop.rename(columns={"읍면동": "EMD_KOR_NM"})
         df_pop = df_pop[df_pop["EMD_KOR_NM"] != "합계"]
         df_pop["총인구수"] = df_pop["총인구수"].astype(str).str.replace(",", "").astype(float)
@@ -659,7 +660,7 @@ def server(input, output, session):
     @output
     @render.data_frame
     def show_score_table():
-        df = pd.read_csv("score.csv",encoding="euc-kr")
+        df = pd.read_csv("score.csv",encoding="utf-8")
         return render.DataGrid(df, width="100%", height="500px", filters=False)
 
     @output
@@ -862,8 +863,8 @@ def server(input, output, session):
         most_common_year = df_subset['사용승인일(년도)'].mode().iloc[0] if not df_subset['사용승인일(년도)'].mode().empty else None
         most_common_purpose = df_subset['주용도코드명'].mode().iloc[0] if not df_subset['주용도코드명'].mode().empty else None
         most_common_material = df_subset['구조코드명'].mode().iloc[0] if not df_subset['구조코드명'].mode().empty else None
-        avg_hydrant_dist = round(df_subset['소화전거리'].mean(), 2)
-        avg_firestation_dist = round(df_subset['소방서거리'].mean(), 2)
+        avg_hydrant_dist = f"{round(df_subset['소화전거리'].mean(), 2):,}"
+        avg_firestation_dist = f"{round(df_subset['소방서거리'].mean(), 2):,}"
         avg_total_score = round(df_subset['total_score'].mean(), 2)
 
         return [
@@ -994,11 +995,14 @@ def server(input, output, session):
     
         # 상위 10% 파랑
         ax.hist(top_10["total_score"], bins=bin_edges, alpha=0.7, color="royalblue", label="상위 10%")
+        
+        
     
-        ax.set_title("취약 점수 분포")
-        ax.set_xlabel("취약 점수 (total_score)")
-        ax.set_ylabel("건물 수")
-        ax.legend()
+        ax.set_title("취약 점수 분포",fontproperties=font_prop)
+        ax.set_xlabel("취약 점수 (total_score)",fontproperties=font_prop)
+        ax.set_ylabel("건물 수",fontproperties=font_prop)
+        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
+        ax.legend(prop=font_prop)
     
         return fig
     @output
@@ -1055,47 +1059,77 @@ def server(input, output, session):
 
         return ui.HTML(m._repr_html_())
     
+    # @output
+    # @render.ui
+    # def show_score_comparison_boxes():
+    #     # ✅ 기준 읍면동 리스트
+    #     selected = ['금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면',
+    #                 '고경면', '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
+
+    #     # ✅ 전후 점수 계산
+    #     df_before = df[df["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
+    #     df_after = df_fake[df_fake["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
+
+    #     # ✅ 이름 변경 및 병합
+    #     df_before = df_before.rename(columns={"total_score": "전"})
+    #     df_after = df_after.rename(columns={"total_score": "후"})
+    #     df_compare = df_before.merge(df_after, on="읍면동")
+    #     df_compare["변화"] = (df_compare["후"] - df_compare["전"]).abs()
+
+    #     # ✅ 변화량 기준 정렬 후 상위 4개 추출
+    #     top4 = df_compare.sort_values(by="변화", ascending=False).head(4)
+
+    #     # ✅ value_box 구성
+    #     boxes = []
+    #     for _, row in top4.iterrows():
+    #         fire_icon = ui.HTML(
+    #             '<img src="fire.png" alt="Fire Icon" style="height:100%;"/>'
+    #             ),
+    #         box = ui.value_box(
+    #             title=ui.HTML(f"""
+    #                 <div style='text-align:center;'> {row["읍면동"]}</div>
+    #                 """),
+    #             value=ui.HTML(f"""
+    #                 <div style='font-size:30px; text-align:center; padding:4px 0; line-height:1.2'>
+    #                     {row['전']} → {row['후']}
+    #                 </div>
+    #                 """),
+    #             showcase=fire_icon,
+    #             theme="danger" if row["후"] > row["전"] else "success"
+    #         )
+    #         boxes.append(box)
+
+    #     return ui.layout_columns(*boxes, col_widths=[3] * len(boxes))
+    
     @output
     @render.ui
     def show_score_comparison_boxes():
-        # ✅ 기준 읍면동 리스트
         selected = ['금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면',
                     '고경면', '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
 
-        # ✅ 전후 점수 계산
         df_before = df[df["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
         df_after = df_fake[df_fake["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
 
-        # ✅ 이름 변경 및 병합
         df_before = df_before.rename(columns={"total_score": "전"})
         df_after = df_after.rename(columns={"total_score": "후"})
         df_compare = df_before.merge(df_after, on="읍면동")
         df_compare["변화"] = (df_compare["후"] - df_compare["전"]).abs()
 
-        # ✅ 변화량 기준 정렬 후 상위 4개 추출
         top4 = df_compare.sort_values(by="변화", ascending=False).head(4)
 
-        # ✅ value_box 구성
         boxes = []
         for _, row in top4.iterrows():
-            fire_icon = ui.HTML(
-                '<img src="fire.png" alt="Fire Icon" style="height:100%;"/>'
-                ),
             box = ui.value_box(
-                title=ui.HTML(f"""
-                    <div style='text-align:center;'> {row["읍면동"]}</div>
-                    """),
-                value=ui.HTML(f"""
-                    <div style='font-size:30px; text-align:center; padding:4px 0; line-height:1.2'>
-                        {row['전']} → {row['후']}
-                    </div>
-                    """),
-                showcase=fire_icon,
-                theme="danger" if row["후"] > row["전"] else "success"
+                title=row["읍면동"],
+                value=f"{row['전']} → {row['후']}",
+                showcase=ui.img(src="FIRE.png", height="60px"),
+                theme="danger" if row["후"] > row["전"] else "",
+                style="font-size: 1.5rem; min-height: 130px;"
             )
             boxes.append(box)
 
-        return ui.layout_columns(*boxes, col_widths=[3] * len(boxes))
+    # 세로로 네 개 쌓기: 한 열로 구성
+        return ui.layout_column_wrap(width=1, *boxes)
     @reactive.calc
     def mean_score_by_dong():
         filtered = filtered_building_df()
@@ -1115,28 +1149,28 @@ def server(input, output, session):
                 ui.value_box(
                     title=df_top4.iloc[0]["읍면동"],
                     value=f"{df_top4.iloc[0]['total_score']:.2f}",
-                    showcase=ui.img(src="dangerdark.png", height="40px"),
+                    showcase=ui.img(src="alarmdark.png", height="60px"),
                     theme="",
                     style="font-size: 1.4rem; min-height: 130px;"
                 ),
                 ui.value_box(
                     title=df_top4.iloc[1]["읍면동"],
                     value=f"{df_top4.iloc[1]['total_score']:.2f}",
-                    showcase=ui.img(src="danger.png", height="40px"),
+                    showcase=ui.img(src="alarm.png", height="60px"),
                     theme="",
                     style="font-size: 1.4rem; min-height: 130px;"
                 ),
                 ui.value_box(
                     title=df_top4.iloc[2]["읍면동"],
                     value=f"{df_top4.iloc[2]['total_score']:.2f}",
-                    showcase=ui.img(src="dangerdark.png", height="40px"),
+                    showcase=ui.img(src="alarmdark.png", height="60px"),
                     theme="",
                     style="font-size: 1.4rem; min-height: 130px;"
                 ),
                 ui.value_box(
                     title=df_top4.iloc[3]["읍면동"],
                     value=f"{df_top4.iloc[3]['total_score']:.2f}",
-                    showcase=ui.img(src="danger.png", height="40px"),
+                    showcase=ui.img(src="alarm.png", height="60px"),
                     theme="",
                     style="font-size: 1.4rem; min-height: 130px;"
                 )
@@ -1150,25 +1184,25 @@ def server(input, output, session):
                 ui.value_box(
                     title=df_top4_old.iloc[0]["읍면동"],
                     value=f"{df_top4_old.iloc[0]['고령인구비율']:.2f}%",
-                    showcase=ui.img(src="old.png", height="40px"),
+                    showcase=ui.img(src="oldman.png", height="60px"),
                     theme="purple"
                 ),
                 ui.value_box(
                     title=df_top4_old.iloc[1]["읍면동"],
                     value=f"{df_top4_old.iloc[1]['고령인구비율']:.2f}%",
-                    showcase=ui.img(src="olddark.png", height="40px"),
+                    showcase=ui.img(src="oldmandark.png", height="60px"),
                     theme="purple"
                 ),
                 ui.value_box(
                     title=df_top4_old.iloc[2]["읍면동"],
                     value=f"{df_top4_old.iloc[2]['고령인구비율']:.2f}%",
-                    showcase=ui.img(src="olddark.png", height="40px"),
+                    showcase=ui.img(src="oldmandark.png", height="60px"),
                     theme="purple"
                 ),
                 ui.value_box(
                     title=df_top4_old.iloc[3]["읍면동"],
                     value=f"{df_top4_old.iloc[3]['고령인구비율']:.2f}%",
-                    showcase=ui.img(src="old.png", height="40px"),
+                    showcase=ui.img(src="oldman.png", height="60px"),
                     theme="purple"
                 )
         ]
@@ -1198,10 +1232,10 @@ def server(input, output, session):
         # 왼쪽 y축: 위험 점수
         color1 = 'skyblue'
         ax1.plot(df_score_sorted['순서_위험'], df_score_sorted['위험 점수 평균'], marker='o', color=color1, label='취약 점수 평균')
-        ax1.set_ylabel('취약 점수 평균', color=color1,fontsize=14)
+        ax1.set_ylabel('취약 점수 평균', color=color1,fontsize=14,fontproperties=font_prop)
         ax1.tick_params(axis='y', labelcolor=color1)
         ax1.set_xticks(df_score_sorted['순서_위험'])
-
+        ax1.set_xticklabels([''] * len(df_score_sorted))
         # 강조: 위험 점수
         for dong in highlight_dongs:
             row = df_score_sorted[df_score_sorted['읍면동'] == dong]
@@ -1209,13 +1243,13 @@ def server(input, output, session):
                 idx = row['순서_위험'].values[0]
                 score = row['위험 점수 평균'].values[0]
                 ax1.scatter(idx, score, color='red', zorder=5)
-                ax1.text(idx, score + 0.2, f"{dong}\n({score:.2f})", ha='center', va='bottom', color='red', fontweight='bold')
+                ax1.text(idx, score + 0.2, f"{dong}\n({score:.2f})", ha='center', va='bottom', color='red', fontweight='bold',fontproperties=font_prop)
 
         # 오른쪽 y축: 고령 인구
         ax2 = ax1.twinx()
         color2 = 'green'
         ax2.plot(df_age_sorted['순서_고령'], df_age_sorted['고령인구비율'], marker='s', linestyle='--', color=color2, label='고령 인구 비율')
-        ax2.set_ylabel('고령 인구 비율 (%)', color=color2,fontsize=14)
+        ax2.set_ylabel('고령 인구 비율 (%)', color=color2,fontsize=14,fontproperties=font_prop)
         ax2.tick_params(axis='y', labelcolor=color2)
 
         # 강조: 고령 인구
@@ -1225,10 +1259,10 @@ def server(input, output, session):
                 idx = row['순서_고령'].values[0]
                 age = row['고령인구비율'].values[0]
                 ax2.scatter(idx, age, color='red', zorder=5)
-                ax2.text(idx, age + 0.5, f"{dong}\n({age:.1f}%)", ha='center', va='bottom', color='red', fontweight='bold')
+                ax2.text(idx, age + 0.5, f"{dong}\n({age:.1f}%)", ha='center', va='bottom', color='red', fontweight='bold',fontproperties=font_prop)
 
         # 제목
-        plt.title('취약 점수 (ㅡ) / 고령 인구 비율 (---)')
+        plt.title('취약 점수 (ㅡ) / 고령 인구 비율 (---)', fontproperties=font_prop)
         plt.tight_layout()
         
     applied = reactive.Value(False)

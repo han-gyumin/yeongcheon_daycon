@@ -1,6 +1,7 @@
 from shiny import App, ui, render, reactive, req
 import pandas as pd
 import geopandas as gpd
+from shinyswatch import theme
 import folium
 import plotly.express as px
 import os
@@ -11,9 +12,9 @@ region_list = df_population["읍면동"].unique().tolist()
 # UI 구성
 def app_ui(request):
     return ui.page_fluid(
-        ui.tags.head(
-            ui.tags.link(rel="stylesheet", href="styles.css")
-        ),
+        # ui.tags.head(
+        #     ui.tags.link(rel="stylesheet", href="styles.css")
+        # ),
         ui.page_navbar(
             ui.nav_panel("1",
                 ui.layout_sidebar(
@@ -83,13 +84,13 @@ def app_ui(request):
                     ),
                     ui.layout_columns(
                         ui.card(
-                            ui.card_header("📈 조건 변화에 따른 점수 변화 시뮬레이션"),
+                            ui.card_header("📈 취약 지역 내 소방 인프라 확충에 따른 취약 점수"),
                             ui.output_ui("show_score_map3"),
                             full_screen=True,
                         ), 
-                        ui.card(  #✅ 새로 추가된 카드
-                            ui.card_header("📂 시뮬레이션 요약"),
-                            
+                        ui.card(
+                            ui.card_header("📈 취약 점수 전후 변화 비교"),
+                            ui.output_ui("show_score_comparison_boxes")
                         ),   
                     ),
                     
@@ -195,6 +196,7 @@ def app_ui(request):
             ),
         
         title="🔥 영천시 화재 취약건물 분석",
+        theme = theme.journal
                 
         )
     )
@@ -942,5 +944,47 @@ def server(input, output, session):
         ).add_to(m)
 
         return ui.HTML(m._repr_html_())
+    
+    @output
+    @render.ui
+    def show_score_comparison_boxes():
+        # ✅ 기준 읍면동 리스트
+        selected = ['금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면',
+                    '고경면', '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
+
+        # ✅ 전후 점수 계산
+        df_before = df[df["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
+        df_after = df_fake[df_fake["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
+
+        # ✅ 이름 변경 및 병합
+        df_before = df_before.rename(columns={"total_score": "전"})
+        df_after = df_after.rename(columns={"total_score": "후"})
+        df_compare = df_before.merge(df_after, on="읍면동")
+        df_compare["변화"] = (df_compare["후"] - df_compare["전"]).abs()
+
+        # ✅ 변화량 기준 정렬 후 상위 4개 추출
+        top4 = df_compare.sort_values(by="변화", ascending=False).head(4)
+
+        # ✅ value_box 구성
+        boxes = []
+        for _, row in top4.iterrows():
+            fire_icon = ui.HTML(
+                '<img src="fire.png" alt="Fire Icon" style="height:100%;"/>'
+                ),
+            box = ui.value_box(
+                title=ui.HTML(f"""
+                    <div style='text-align:center;'> {row["읍면동"]}</div>
+                    """),
+                value=ui.HTML(f"""
+                    <div style='font-size:25px; text-align:center; padding:4px 0; line-height:1.2'>
+                        {row['전']} → {row['후']}
+                    </div>
+                    """),
+                showcase=fire_icon,
+                theme="danger" if row["후"] > row["전"] else "danger"
+            )
+            boxes.append(box)
+
+        return ui.layout_columns(*boxes, col_widths=[3] * len(boxes))
 app = App(app_ui, server, static_assets=STATIC_DIR)
 

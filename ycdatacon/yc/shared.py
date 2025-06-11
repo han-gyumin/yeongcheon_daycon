@@ -268,30 +268,26 @@ def create_hydrant_station_map():
     center_lon = hydrants_filtered["경도"].mean()
     m = folium.Map(location=[center_lat, center_lon], zoom_start=11)
 
-    # 🔷 읍면동 경계 (shp -> GeoDataFrame)
-    
-    gdf = gpd.read_file("old.geojson")
-    
-    gdf = gdf.to_crs(epsg=4326)  # 지도 좌표계로 맞추기
-
+    # 🔷 읍면동 경계 추가
+    gdf = gpd.read_file("old.geojson").to_crs(epsg=4326)
     folium.GeoJson(
-    gdf,
-    name="읍면동 경계",
-    style_function=lambda x: {
-        "fillColor": "#ffffff",   # 흰색
-        "color": "#999999",       # 테두리는 연회색
-        "weight": 1.5,
-        "fillOpacity": 0.5,       # 반투명 (0.0 ~ 1.0)
-        "opacity": 0.8
-    },
-    tooltip=folium.GeoJsonTooltip(
-        fields=["EMD_KOR_NM"],
-        aliases=["읍면동"],
-        localize=True
-    )
-).add_to(m)
+        gdf,
+        name="읍면동 경계",
+        style_function=lambda x: {
+            "fillColor": "#ffffff",
+            "color": "#999999",
+            "weight": 1.5,
+            "fillOpacity": 0.5,
+            "opacity": 0.8
+        },
+        tooltip=folium.GeoJsonTooltip(
+            fields=["EMD_KOR_NM"],
+            aliases=["읍면동"],
+            localize=True
+        )
+    ).add_to(m)
 
-    # 🔵 소화전 점 추가
+    # 🔵 소화전 추가
     for _, row in hydrants_filtered.iterrows():
         folium.CircleMarker(
             location=[row["위도"], row["경도"]],
@@ -302,7 +298,7 @@ def create_hydrant_station_map():
             popup=f"소화전 코드: {row['소화전 고유코드']}"
         ).add_to(m)
 
-    # 🔴 소방서 마커 추가
+    # 🔴 소방서 추가
     for _, row in stations_filtered.iterrows():
         folium.Marker(
             location=[row["위도"], row["경도"]],
@@ -310,7 +306,28 @@ def create_hydrant_station_map():
             popup=row["안전센터"]
         ).add_to(m)
 
+    # 🟡 범례 추가 (HTML + CSS)
+    legend_html = """
+    <div style="
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        z-index: 9999;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 6px 10px;
+        font-size: 13px;
+        box-shadow: 1px 1px 5px rgba(0,0,0,0.1);
+        ">
+        🔵 소화전<br>
+        🔴 소방서
+    </div>
+    """
+    m.get_root().html.add_child(folium.Element(legend_html))
+
     return m._repr_html_()
+
 
 # def create_hydrant_station_map():
 #     # 중심 좌표 설정 (영천시 중심 정도로 평균 좌표)

@@ -21,7 +21,7 @@ def app_ui(request):
             )
         ), 
         ui.page_navbar(
-            ui.nav_panel("",
+            ui.nav_panel("HOME",
                 ui.card(
                     ui.card_header("사용자 가중치 설정"),
                     ui.layout_columns(
@@ -217,7 +217,7 @@ def app_ui(request):
                 ),
             ),
         
-        title=ui.tags.a("🔥 영천시 화재 취약건물 분석", href="/", style="text-decoration:none; color:inherit;"),
+        title=ui.tags.a("🔥 영천시 화재 취약건물 분석", href="/yc_project/", style="text-decoration:none; color:inherit;"),
         theme = theme.journal
                 
         )

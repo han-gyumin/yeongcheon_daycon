@@ -7,7 +7,8 @@ import plotly.express as px
 import os
 import matplotlib.ticker as ticker
 from shared import df_population, df,font_prop,create_distance_hist_image, common_df,df_fake,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered,top5_old,top5_score
-
+from shinywidgets import render_widget
+import plotly.graph_objs as go
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "www")
 region_list = df_population["읍면동"].unique().tolist()
 
@@ -302,7 +303,6 @@ def server(input, output, session):
     
     @output
     @render.ui
-    
     def show_structure_pie():
         # 🔹 구조 그룹별 건물 수 집계
         group_counts = df['구조그룹'].value_counts().reset_index()
@@ -316,7 +316,25 @@ def server(input, output, session):
             title='건축 자재별 건물 분포',
             hole=0.4
         )
-        fig.update_traces(textinfo='percent+label')
+
+        # 🔹 숨기고 싶은 레이블 정의
+        hidden_labels = ["조립식·판넬·기타", "기타 / 특수 구조"]
+
+        # 🔹 텍스트 조건부 표시
+        fig.update_traces(
+        texttemplate=[
+            f"{label}" if label not in hidden_labels else ""
+            for label, percent in zip(
+                group_counts["구조그룹"],
+                group_counts["건물수"] / group_counts["건물수"].sum() * 100
+            )
+        ],
+        textposition="inside",
+        insidetextorientation="horizontal",
+        hovertemplate="<b>구조그룹=%{label}</b><br>건물수=%{value:,}<br>비율=%{percent:.1%}<extra></extra>"
+        )
+
+
         fig.update_layout(title_font_size=20)
 
         return ui.HTML(fig.to_html())
@@ -351,6 +369,16 @@ def server(input, output, session):
 
         group_counts = df['주용도_그룹'].value_counts().reset_index()
         group_counts.columns = ['주용도_그룹', '건물수']
+        group_counts['비율'] = group_counts['건물수'] / group_counts['건물수'].sum()
+
+        # 숨길 항목
+        hidden_labels = ["교육/복지시설", "종교/문화시설", "숙박/다중이용시설", "교정/군사/운수/기타", "행정/공공/업무시설"]
+
+        # 텍스트 설정 (비율 없이)
+        group_counts['label'] = group_counts.apply(
+            lambda row: "" if row['주용도_그룹'] in hidden_labels else f"{row['주용도_그룹']}",
+            axis=1
+        )
 
         fig = px.pie(
             group_counts,
@@ -359,38 +387,91 @@ def server(input, output, session):
             title='주용도별 건물 분포',
             hole=0.4
         )
-        fig.update_traces(textinfo='percent+label')
+
+        fig.update_traces(
+            text=group_counts['label'],
+            textinfo='text',
+            textposition='inside',
+            insidetextorientation="horizontal",
+            hovertemplate="<b>주용도=%{label}</b><br>건물수=%{value:,}<br>비율=%{percent:.1%}<extra></extra>"
+        )
+
         fig.update_layout(title_font_size=20)
 
         return ui.HTML(fig.to_html())
+
 
     @output
     @render.ui
     def show_elevator_pie():
         df_filtered = df[(df["지상층수"] >= 5) | (df["지하층수"] >= 5)]
-        elevator_counts = df_filtered["비상용승강기수"].value_counts().sort_index()
+        ordered_labels = ["0", "1", "2", "3", "4", "5"]
+
+        # value_counts 후 누락된 값 채우기
+        all_counts = pd.Series(index=ordered_labels, dtype=int)
+        actual_counts = df_filtered["비상용승강기수"].astype(str).value_counts()
+        all_counts.update(actual_counts)
+        all_counts = all_counts.fillna(0).astype(int)
+
         elevator_df = pd.DataFrame({
-            "비상용승강기수": elevator_counts.index.astype(str),
-            "건물수": elevator_counts.values
+            "비상용승강기수": all_counts.index,
+            "건물수": all_counts.values
         })
+
+        # 내부 텍스트: 4, 5 제외하고 "n대"로 표시 (비율 제거)
+        elevator_df['label'] = elevator_df.apply(
+            lambda row: f"{row['비상용승강기수']}대" if row['비상용승강기수'] not in ['4', '5'] else "",
+            axis=1
+        )
 
         fig = px.pie(
             elevator_df,
             names="비상용승강기수",
             values="건물수",
             title="비상용 승강기 수 분포",
-            hole=0.4
+            hole=0.4,
+            category_orders={"비상용승강기수": ordered_labels}
         )
-        fig.update_traces(textinfo='percent+label')
-        fig.update_layout(title_font_size=20)
+
+        fig.update_traces(
+            text=elevator_df['label'],
+            textinfo="text",
+            textposition="inside",
+            insidetextorientation="horizontal",
+            hovertemplate="<b>승강기 수=%{label}대</b><br>건물수=%{value:,}<br>비율=%{percent:.1%}<extra></extra>"
+        )
+
+        fig.update_layout(
+            title_font_size=20,
+            legend_traceorder="normal"
+        )
 
         return ui.HTML(fig.to_html())
     
     @output
     @render.ui
     def show_station_distance_plot():
-        encoded_img = create_distance_hist_image()
-        return ui.HTML(f'<img src="data:image/png;base64,{encoded_img}" style="width:100%;">')
+        fig = go.Figure()
+
+        fig.add_trace(go.Histogram(
+            x=df["소방서거리"],
+            nbinsx=50,
+            marker=dict(color='salmon', line=dict(color='black', width=1)),
+            name="소방서 거리"
+        ))
+
+        fig.update_layout(
+            title="소방서 거리 분포",
+            xaxis_title="거리 (m)",
+            yaxis_title="건물 수",
+            template="simple_white",
+            margin=dict(l=40, r=20, t=50, b=40),
+            font=dict(family="Arial", size=14)
+        )
+
+        # Plotly Figure를 HTML로 변환
+        plot_html = fig.to_html(full_html=False, include_plotlyjs="cdn")
+        return ui.HTML(plot_html)
 
     @output
     @render.ui
@@ -400,8 +481,27 @@ def server(input, output, session):
     @output
     @render.ui
     def show_firehydrant_distance_plot():
-        encoded_img = create_firehydrant_distance_plot()
-        return ui.HTML(f'<img src="data:image/png;base64,{encoded_img}" style="width:90%;">')
+        fig = go.Figure()
+
+        fig.add_trace(go.Histogram(
+            x=df["소화전거리"],
+            nbinsx=50,
+            marker=dict(color='skyblue', line=dict(color='black', width=1)),
+            name="소화전 거리"
+        ))
+
+        fig.update_layout(
+            title="소화전 거리 분포",
+            xaxis_title="소화전 거리 (m)",
+            yaxis_title="건물 수",
+            template="simple_white",
+            margin=dict(l=40, r=20, t=50, b=40),
+            font=dict(family="Arial", size=14)
+        )
+
+        # HTML로 변환 후 반환
+        plot_html = fig.to_html(full_html=False, include_plotlyjs="cdn")
+        return ui.HTML(plot_html)
 
     @output
     @render.data_frame
@@ -1058,48 +1158,7 @@ def server(input, output, session):
         ).add_to(m)
 
         return ui.HTML(m._repr_html_())
-    
-    # @output
-    # @render.ui
-    # def show_score_comparison_boxes():
-    #     # ✅ 기준 읍면동 리스트
-    #     selected = ['금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면',
-    #                 '고경면', '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
 
-    #     # ✅ 전후 점수 계산
-    #     df_before = df[df["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
-    #     df_after = df_fake[df_fake["읍면동"].isin(selected)].groupby("읍면동")["total_score"].mean().round(2).reset_index()
-
-    #     # ✅ 이름 변경 및 병합
-    #     df_before = df_before.rename(columns={"total_score": "전"})
-    #     df_after = df_after.rename(columns={"total_score": "후"})
-    #     df_compare = df_before.merge(df_after, on="읍면동")
-    #     df_compare["변화"] = (df_compare["후"] - df_compare["전"]).abs()
-
-    #     # ✅ 변화량 기준 정렬 후 상위 4개 추출
-    #     top4 = df_compare.sort_values(by="변화", ascending=False).head(4)
-
-    #     # ✅ value_box 구성
-    #     boxes = []
-    #     for _, row in top4.iterrows():
-    #         fire_icon = ui.HTML(
-    #             '<img src="fire.png" alt="Fire Icon" style="height:100%;"/>'
-    #             ),
-    #         box = ui.value_box(
-    #             title=ui.HTML(f"""
-    #                 <div style='text-align:center;'> {row["읍면동"]}</div>
-    #                 """),
-    #             value=ui.HTML(f"""
-    #                 <div style='font-size:30px; text-align:center; padding:4px 0; line-height:1.2'>
-    #                     {row['전']} → {row['후']}
-    #                 </div>
-    #                 """),
-    #             showcase=fire_icon,
-    #             theme="danger" if row["후"] > row["전"] else "success"
-    #         )
-    #         boxes.append(box)
-
-    #     return ui.layout_columns(*boxes, col_widths=[3] * len(boxes))
     
     @output
     @render.ui

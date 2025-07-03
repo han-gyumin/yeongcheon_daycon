@@ -1478,7 +1478,7 @@ def server(input, output, session):
             box = ui.value_box(
                 title=row["읍면동"],
                 value=f"{row['전']} → {row['후']}",
-                showcase=ui.img(src="FIRE.png", height="60px"),
+                showcase=ui.img(src="fire.png", height="60px"),
                 theme="danger" if row["후"] > row["전"] else "",
                 style="font-size: 1.5rem; min-height: 130px;"
             )

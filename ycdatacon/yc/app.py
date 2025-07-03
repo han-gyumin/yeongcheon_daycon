@@ -7,7 +7,6 @@ import plotly.express as px
 import os
 import matplotlib.ticker as ticker
 from shared import df_population, df,font_prop,create_distance_hist_image, common_df,df_fake,create_firehydrant_distance_plot,create_building_map,create_hydrant_station_map, stations_filtered,top5_old,top5_score
-from shinywidgets import render_widget
 import plotly.graph_objs as go
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "www")
 region_list = df_population["읍면동"].unique().tolist()
@@ -16,6 +15,45 @@ region_list = df_population["읍면동"].unique().tolist()
 def app_ui(request):
     return ui.page_fluid(
         ui.tags.head(
+        ui.tags.style(
+            """
+            .scroll-box {
+                max-height: 600px;
+                overflow-y: auto;
+                border: 1px solid #ccc;
+                padding: 10px;
+            }
+            table {
+                font-size: 14px;
+                line-height: 1.6;
+                table-layout: fixed;
+                width: 100%;
+            }
+            th {
+                white-space: nowrap !important;
+                text-align: center;
+                background-color: #f8f9fa;
+            }
+            td {
+                vertical-align: top;
+                white-space: normal !important;
+                padding: 8px;
+            }
+            td:nth-child(1) {
+                width: 10%;
+                text-align: left;
+            }
+            td:nth-child(2) {
+                width: 10%;
+                text-align: center;
+            }
+            td:nth-child(3) {
+                width: 80%;
+                text-align: left;
+            }
+            """
+),
+
             ui.tags.link(
                 href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/journal/bootstrap.min.css",
                 rel="stylesheet"
@@ -197,22 +235,22 @@ def app_ui(request):
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("변수 정의"),
-                        ui.output_data_frame("show_variable_table")
+                        ui.output_ui("show_data_table")
                     ),
                     ui.card(
                         ui.card_header("데이터 설명"),
-                        ui.output_data_frame("show_data_table")
+                        ui.output_ui("show_variable_table")
                     )
                 ),
                 ui.layout_columns(
                     ui.card(
                         ui.card_header("점수 산출 기준표"),
-                        ui.output_data_frame("show_score_table"),
+                        ui.output_ui("show_score_table"),
                         full_screen=True
                     ),
                     ui.card(
                         ui.card_header("가중치 산출 기준표"),
-                        ui.output_data_frame("show_weight_table"),
+                        ui.output_ui("show_weight_table"),
                         full_screen=True
                     )
                 ),
@@ -568,7 +606,7 @@ def server(input, output, session):
 
         summary_df = pd.DataFrame(summary_data, columns=columns)
         return render.DataGrid(summary_df, width="100%", height="200px", filters=False)
-
+    import branca.colormap as cm
     @output
     @render.ui
     def show_score_map():
@@ -582,26 +620,31 @@ def server(input, output, session):
         gdf = gdf.merge(df_score_grouped, on="EMD_KOR_NM", how="left")
         gdf["평균위험도"] = gdf["평균위험도"].fillna(0)
         gdf = gdf[gdf["EMD_KOR_NM"].isin(selected)].copy()
-        
+
         min_score = gdf["평균위험도"].min()
         max_score = gdf["평균위험도"].max()
         step = (max_score - min_score) / 5 if max_score != min_score else 1
 
+        # ✅ 동일한 색상 및 등급 구간 적용
+        thresholds = [min_score + step * i for i in range(6)]  # 5등급 → 6경계값
+        colors = ["#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"]
+
+        colormap = cm.StepColormap(
+            colors=colors,
+            index=thresholds,
+            vmin=min_score,
+            vmax=max_score,
+            caption="평균 취약 점수"
+        )
+
         center = gdf.geometry.unary_union.centroid
         m = folium.Map(location=[center.y, center.x], zoom_start=10)
-
-        def get_score_color(score):
-            if score >= min_score + step * 4: return "#bd0026"
-            elif score >= min_score + step * 3: return "#f03b20"
-            elif score >= min_score + step * 2: return "#fd8d3c"
-            elif score >= min_score + step * 1: return "#fecc5c"
-            else: return "#ffffb2"
 
         folium.GeoJson(
             gdf,
             name="위험도 시각화",
             style_function=lambda feature: {
-                "fillColor": get_score_color(feature["properties"].get("평균위험도", 0)),
+                "fillColor": colormap(feature["properties"].get("평균위험도", 0)),
                 "color": "black",
                 "weight": 1,
                 "fillOpacity": 0.6,
@@ -613,7 +656,11 @@ def server(input, output, session):
             )
         ).add_to(m)
 
+        colormap.add_to(m)
+
         return ui.HTML(m._repr_html_())
+
+    import branca.colormap as cm
 
     @output
     @render.ui
@@ -630,6 +677,13 @@ def server(input, output, session):
         gdf = gdf.merge(df_pop, on="EMD_KOR_NM", how="left")
         gdf = gdf[gdf["EMD_KOR_NM"].isin(selected)]
 
+        min_ratio = gdf["고령인구비율(%)"].min()
+        max_ratio = gdf["고령인구비율(%)"].max()
+
+        # ✅ 연속형 색상바 정의 (보라 계열)
+        colormap = cm.linear.Purples_09.scale(min_ratio, max_ratio)
+        # colormap.caption = "고령인구 비율 (%)"
+
         center = gdf.geometry.unary_union.centroid
         m = folium.Map(location=[center.y, center.x], zoom_start=10)
 
@@ -637,15 +691,7 @@ def server(input, output, session):
             gdf,
             name="고령인구 비율 시각화",
             style_function=lambda feature: {
-                'fillColor': (
-                    "#810f7c" if feature['properties'].get('고령인구비율(%)', 0) >= 50 else
-                    '#8856a7' if feature['properties'].get('고령인구비율(%)', 0) >= 45 else
-                    "#8c96c6" if feature['properties'].get('고령인구비율(%)', 0) >= 40 else
-                    "#9ebcda" if feature['properties'].get('고령인구비율(%)', 0) >= 30 else
-                    "#e0ecf4"
-
-                ),
-
+                'fillColor': colormap(feature['properties'].get('고령인구비율(%)', 0)),
                 'color': 'black',
                 'weight': 1,
                 'fillOpacity': 0.7,
@@ -657,6 +703,9 @@ def server(input, output, session):
             )
         ).add_to(m)
 
+        # ✅ 색상바 추가
+        colormap.add_to(m)
+
         return ui.HTML(m._repr_html_())
 
     @output
@@ -665,6 +714,8 @@ def server(input, output, session):
         df_show = filtered_df().copy()
         df_show["고령인구비율"] = (df_show["고령인구비율"]).round(2).astype(str) + " %"
         return df_show[["읍면동", "총인구수", "고령인구", "고령인구비율"]]
+
+
 
     @output
     @render.ui
@@ -738,36 +789,270 @@ def server(input, output, session):
             ui.markdown(f"🔍 전체 **{total_count:,}건 중 {filtered_count:,}건**이 조건을 만족합니다."),
             ui.HTML(m._repr_html_())
         )
-        
-    
-    
-    
-    
-    
-    # 🔹 데이터프레임 렌더링
-    @output
-    @render.data_frame
-    def show_variable_table():
-        df = pd.read_csv("variable.csv", encoding="euc-kr")
-        return render.DataGrid(df, width="100%", height="500px", filters=False)
+            
+    common_style = """
+    <style>
+        .scroll-box {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        table {
+            font-size: 14px;
+            line-height: 1.6;
+            table-layout: fixed;
+            width: 100%;
+        }
+        th {
+            white-space: nowrap !important;
+            text-align: center;
+            background-color: #f8f9fa;
+        }
+        td {
+            vertical-align: top;
+            white-space: normal !important;
+            padding: 8px;
+        }
+        td:nth-child(1) {
+            width: 10%;
+            text-align: left;
+        }
+        td:nth-child(2) {
+            width: 10%;
+            text-align: center;
+        }
+        td:nth-child(3) {
+            width: 80%;
+            text-align: left;
+        }
+    </style>
+    """
 
+
+    
+    
+    
+        # 🔹 데이터프레임 렌더링
     @output
-    @render.data_frame
+    @render.ui
     def show_data_table():
-        df = pd.read_csv("data.csv")
-        return render.DataGrid(df, width="100%", height="500px", filters=False)
+        import pandas as pd
+        from shiny import ui
+
+        df = pd.DataFrame({
+            "변수명": [
+                "사용승인일(년도)", "지상층수", "지하층수", "주용도코드명", "구조코드명",
+                "비상용승강기수", "소화전 거리", "소방관서 거리"
+            ],
+            "설명": [
+                "건물의 사용 승인 연도(건물 노후도를 알아보기 위함)",
+                "건물의 지상 층 수",
+                "건물의 지하 층 수",
+                "건물의 주요 기능 및 사용 목적 구분",
+                "건물의 주요 구조체 재료",
+                "화재 시 대피에 사용할 수 있는 승강기 수",
+                "건물과 가장 가까운 소화전까지의 거리",
+                "최근접 소방관서(소방서, 119센터 등) 거리"
+            ],
+            "예시값": [
+                "1984", "5층", "지하 2층", "공장, 숙박시설", "목조, 철근콘크리트",
+                "1대", "100m", "4km"
+            ],
+            "비고": [
+                "오래될수록 전기/소방 설비 노후 및 내화재 미비 가능성 ↑",
+                "층수가 높을수록 대피 시간 증가",
+                "연기 흡입 및 대피 지연 위험 ↑",
+                "용도별로 화재 확산/발생 위험 통계 기반",
+                "목조건물은 내화성 낮고 구조적 위험 ↑",
+                "대피 수단 부족 시 위험도 ↑",
+                "70m 이상부터는 소방 호스 연결 제한 가능성 ↑",
+                "도착 지연 시 초기 대응 실패율 ↑"
+            ]
+        })
+
+        html = df.to_html(
+            escape=False,
+            index=False,
+            classes="table table-striped table-bordered",
+            border=0
+        )
+
+        style = """
+        <style>
+            .scroll-box {
+                max-height: 500px;
+                overflow-y: auto;
+                border: 1px solid #ccc;
+                padding: 10px;
+            }
+            table { font-size: 14px; line-height: 1.6; }
+            td, th { vertical-align: top; text-align: left; white-space: normal !important; }
+        </style>
+        """
+
+        return ui.HTML(style + f'<div class="scroll-box">{html}</div>')
+
 
     @output
-    @render.data_frame
+    @render.ui
+    def show_variable_table():
+        from shiny import ui
+        import pandas as pd
+
+        try:
+            df = pd.DataFrame({
+                "공공데이터명": [
+                    "경상북도_소방관서 및 구급차량 현황",
+                    "경상북도_소화전 통합관리 운영현황",
+                    "2025 1분기 주민등록인구통계",
+                    "건축물대장(표제부)"
+                ],
+                "출처": [
+                    "공공데이터포털",
+                    "공공데이터포털",
+                    "영천시청",
+                    "건축HUB"
+                ],
+                "국가중점": [
+                    "⭕", "⭕", "⭕", "⭕"
+                ]
+            })
+
+            html = df.to_html(
+                escape=False,
+                index=False,
+                classes="table table-striped table-bordered",
+                border=0
+            )
+
+            style = """
+            <style>
+                .scroll-box {
+                    max-height: 400px;
+                    overflow-y: auto;
+                    border: 1px solid #ccc;
+                    padding: 10px;
+                }
+                table { font-size: 14px; line-height: 1.6; }
+                td, th { vertical-align: middle; text-align: center; white-space: normal !important; }
+            </style>
+            """
+
+            return ui.HTML(style + f'<div class="scroll-box">{html}</div>')
+
+        except Exception as e:
+            return ui.div(f"⚠️ 오류 발생: {str(e)}", class_="text-danger")
+
+
+    
+    @output
+    @render.ui
     def show_score_table():
-        df = pd.read_csv("score.csv",encoding="utf-8")
-        return render.DataGrid(df, width="100%", height="500px", filters=False)
+        import pandas as pd
+        from shiny import ui
+
+        df = pd.DataFrame({
+            "항목": [
+                "건물 노후도", "지상층수", "지하층수", "주요 용도", "구조 재질", 
+                "비상용 승강기 수", "소화전 거리", "소방관서 거리"
+            ],
+            "기준 / 조건": [
+                "40년 이상: +5.0<br>30년~40년: +4.0<br> 20년~30년: +3.0<br> 10년~20년: +2.0<br> 10년 이하: +1.0",
+                "1층: +0.0<br>2층: +1.0<br>3층: +2.0<br>4층: +3.0",
+                "B1층: +1.0<br>B2층: +2.0<br>B3층: +3.0",
+                "숙박/다중이용시설: +9.0<br>공장/창고시설: +8.0<br>교육/복지시설: +7.0<br>상업/판매시설: +5.0<br>문화/업무시설: +5.0<br>교정/군사/운수/기타: +4.0<br>기타: +3.0<br> 주거시설: +2.0<br>행정/공공/업무시설: +1.0",
+                "목조 계열: +5.0<br> 조적식 구조: +4.0<br>조립식/판넬/기타: +3.0<br>철골 계열: +2.0<br>기타/특수 구조: +1.0<br>콘크리트 계열: +0.0",
+                "0대: +5.0<br>1대: +4.0<br>2대: +3.0<br>3대: +2.0<br>4대: +1.0<br>5대: +0.0",
+                "≤30m: +1.0<br>≤60m: +2.0<br>≤90m: +3.0<br>≤120m: +4.0<br>≤150m: +5.0",
+                "<1km: +1.0<br><3km: +2.0<br><5km: +3.0<br><7km: +4.0<br><9km: +5.0"
+            ],
+            "설명": [
+                "•  전기/소방 설비 노후, 내화재 미비 가능성<br>•  구조 변경 복잡 → 대피 경로 복잡<br>•  오래된 설비로 인한 화재 위험 증가",
+                "•  고층일수록 연기 확산 빠름<br>•  구조대 접근 어려움, 계단 이용 제약",
+                "•  지하는 연기·열기 배출 어려움<br>•  구조대 접근 제한 및 대피 통로 부족",
+                "•  숙박/공장 등은 인원 밀집 또는 가연성 자재로 대형 화재 위험<br>•  용도에 따라 대피 능력, 감지/진압 인프라 차이",
+                "•  목조·조적식은 화재 확산 빠름<br>•  콘크리트·철골 계열은 내화성 높음<br>•  구조 재질은 붕괴 시간과도 관련",
+                "•  고층 건물 대피 시간 단축에 필수<br>•  승강기 미설치 시 구조 어려움",
+                "•  소화전은 초기 화재 진압에 중요<br>•  멀수록 진압 실패 가능성 증가",
+                "•  도착 시간은 골든타임과 직결<br>•  지연 시 인명·재산 피해 증가"
+            ]
+        })
+
+        html = df.to_html(escape=False, index=False, classes="table table-striped table-bordered", border=0)
+        return ui.HTML(common_style + f'<div class="scroll-box">{html}</div>')
+
+
+    common_style2 = """
+    <style>
+        .scroll-box {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        table {
+            font-size: 14px;
+            line-height: 1.6;
+            table-layout: fixed;
+            width: 100%;
+        }
+        th {
+            white-space: nowrap !important;
+            text-align: center;
+            background-color: #f8f9fa;
+        }
+        td {
+            vertical-align: top;
+            white-space: normal !important;
+            padding: 8px;
+        }
+        td:nth-child(1) {
+            width: 15%;
+            text-align: left;
+        }
+        td:nth-child(2) {
+            width: 10%;
+            text-align: center;
+        }
+        td:nth-child(3) {
+            width: 75%;
+            text-align: left;
+        }
+    </style>
+    """
+
+
 
     @output
-    @render.data_frame
+    @render.ui
     def show_weight_table():
-        df = pd.read_csv("weight.csv")
-        return render.DataGrid(df, width="100%", height="500px", filters=False)
+        import pandas as pd
+        from shiny import ui
+
+        df = pd.DataFrame({
+            "항목": [
+                "건물 노후도", "지상층수", "지하층수", "주요 용도", "구조 재질",
+                "비상용 승강기 수", "소화전 거리", "소방관서 거리"
+            ],
+            "점수": [25, 9, 11, 20, 15, 5, 5, 10],
+            "설명": [
+                "• 전기배선, 가스관, 소방시설의 노후화로<br> 화재 발생 가능성과 피해 규모 증가<br>"
+                "• 내화재 미비, 스프링클러 미설치로<br> 초기 진압 어려움",
+                "• 연기 상승, 구조 난이도, 소방차 진입 제약<br>• 고층일수록 대피 및 진압 난이도 증가",
+                "• 환기 부족, 출입구 제약, 비상탈출 어려움<br>• 지하 화재 시 질식 위험과 사망률 증가",
+                "• 용도에 따라 화재 발생률과 피해 규모 상이<br>• 병원·노유자시설 등은 대피 지연 위험 큼",
+                "• 목조·경량 철골조는 연소 빠르고 확산 쉬움<br>• 철근콘크리트는 내화 성능 우수<br>• 구조는 화재 확산 및 대피 시간에 영향",
+                "• 고층 건물 대피 시 유용하나<br>• 구조 지연의 주요 원인은 계단에 있음",
+                "• 소화전이 멀면 초기 진화 지연 발생<br>• 일반인 접근 제한도 대응에 장애",
+                "• 소방 도착 시간은 화재 확대에 큰 영향<br>• 도착 지연 시 피해 규모 급증"
+            ]
+        })
+
+        html = df.to_html(escape=False, index=False, classes="table table-striped table-bordered", border=0)
+        return ui.HTML(f'<div class="scroll-box">{html}</div>')
+
+
 
     @output
     @render.data_frame
@@ -808,38 +1093,37 @@ def server(input, output, session):
         })
     
         return render.DataGrid(df_table, width="100%", height="600px", filters=False)
+    
     # 🔹 사용자 정의 가중치 기반 지도
     @output
     @render.ui
     def show_score_map2():
-        selected = ['동부동', '중앙동', '서부동', '남부동', '완산동', '금호읍', '청통면', '신녕면',
-                    '화산면', '화북면', '화남면', '자양면', '임고면', '고경면', '북안면', '대창면']
+        selected = ['동부동', '중앙동', '서부동', '남부동', '완산동',
+                    '금호읍', '청통면', '신녕면', '화산면', '화북면',
+                    '화남면', '자양면', '임고면', '고경면', '북안면', '대창면']
 
         w = [input.w0(), input.w1(), input.w2(), input.w3(),
-             input.w4(), input.w5(), input.w6(), input.w7()]
+            input.w4(), input.w5(), input.w6(), input.w7()]
 
         gdf = gpd.read_file("old.geojson")
-        # 슬라이더 및 체크박스 값 가져오기
+        
         year_min, year_max = input.year_filter()
         score_min, score_max = input.score_filter()
         structure_selected = input.structure_group()
-        
-        # 모든 조건 반영
+
         df_score = df[
             (df["읍면동"].isin(selected)) &
             (df["사용승인일(년도)"].between(year_min, year_max)) &
             (df["total_score"].between(score_min, score_max)) &
             (df["구조그룹"].isin(structure_selected))
         ].copy()
-        
+
         total_count = len(df)
         filtered_count = len(df_score)
 
         if df_score.empty:
             return ui.HTML("<b>해당 조건에 일치하는 건물 데이터가 없습니다.</b>")
 
-        # 가중치 점수 계산
-        
         df_score["weighted_score"] = (
             df_score["건물연차점수"] * w[0] +
             df_score["지상층수_점수"] * w[1] +
@@ -851,13 +1135,11 @@ def server(input, output, session):
             df_score["소방관서거리_점수"] * w[7]
         )
 
-        # 지도 시각화용 데이터
         grouped = df_score.groupby("읍면동")["weighted_score"].mean().reset_index()
         grouped = grouped.rename(columns={"읍면동": "EMD_KOR_NM", "weighted_score": "평균위험도"})
         gdf = gdf.merge(grouped, on="EMD_KOR_NM", how="left")
         gdf["평균위험도"] = gdf["평균위험도"].fillna(0)
 
-        # 지도 만들기
         min_score = gdf["평균위험도"].min()
         max_score = gdf["평균위험도"].max()
         step = (max_score - min_score) / 5 if max_score != min_score else 1
@@ -888,7 +1170,16 @@ def server(input, output, session):
             )
         ).add_to(m)
 
-        # 표 데이터
+        # ✅ 색상바 추가
+        import branca.colormap as cm
+        colormap = cm.StepColormap(
+            colors=["#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"],
+            vmin=min_score, vmax=max_score,
+            index=[min_score + step * i for i in range(6)],
+            caption="평균 위험 점수"
+        )
+        colormap.add_to(m)
+
         df_table = df_score[["읍면동", "대지위치", "total_score", "weighted_score"]].copy()
         df_table = df_table.rename(columns={
             "읍면동": "행정동",
@@ -896,11 +1187,7 @@ def server(input, output, session):
             "total_score": "기존점수",
             "weighted_score": "사용자가중점수"
         })
-        
 
-        
-
-        # 가로 배치
         return ui.TagList(
             ui.markdown(f"전체 **{total_count:,}건 중 {filtered_count:,}건**이 조건을 만족합니다."),
             ui.layout_columns(
@@ -914,6 +1201,7 @@ def server(input, output, session):
                 col_widths=[7, 5]
             )
         )
+        
     @reactive.calc
     def filtered_csv_data():
         year_min, year_max = input.year_filter()
@@ -1115,10 +1403,11 @@ def server(input, output, session):
     @render.ui
     def show_score_map3():
         selected = ['금호읍', '청통면', '신녕면', '화산면', '화북면', '화남면', '자양면', '임고면', '고경면',
-       '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
+                    '북안면', '대창면', '동부동', '중앙동', '서부동', '완산동', '남부동']
+        
         gdf = gpd.read_file("old.geojson")
 
-        # ✅ df 대신 df_fake 사용
+        # ✅ df_fake 사용
         df_score = df_fake[df_fake["읍면동"].isin(selected)].copy()
         df_score_grouped = df_score.groupby("읍면동")["total_score"].mean().reset_index()
         df_score_grouped = df_score_grouped.rename(columns={"읍면동": "EMD_KOR_NM", "total_score": "평균위험도"})
@@ -1131,21 +1420,26 @@ def server(input, output, session):
         max_score = gdf["평균위험도"].max()
         step = (max_score - min_score) / 5 if max_score != min_score else 1
 
+        # ✅ 색상 스텝 정의
+        thresholds = [min_score + step * i for i in range(6)]  # 5등급 → 6경계값
+        colors = ["#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"]
+
+        colormap = cm.StepColormap(
+            colors=colors,
+            index=thresholds,
+            vmin=min_score,
+            vmax=max_score,
+            caption="평균 취약 점수"
+        )
+
         center = gdf.geometry.unary_union.centroid
         m = folium.Map(location=[center.y, center.x], zoom_start=10)
-
-        def get_score_color(score):
-            if score >= min_score + step * 4: return "#d73027"
-            elif score >= min_score + step * 3: return "#fc8d59"
-            elif score >= min_score + step * 2: return "#fee08b"
-            elif score >= min_score + step * 1: return "#d9ef8b"
-            else: return "#91cf60"
 
         folium.GeoJson(
             gdf,
             name="위험도 시각화",
             style_function=lambda feature: {
-                "fillColor": get_score_color(feature["properties"].get("평균위험도", 0)),
+                "fillColor": colormap(feature["properties"].get("평균위험도", 0)),
                 "color": "black",
                 "weight": 1,
                 "fillOpacity": 0.6,
@@ -1156,6 +1450,9 @@ def server(input, output, session):
                 localize=True
             )
         ).add_to(m)
+
+        # ✅ 색상바 추가
+        colormap.add_to(m)
 
         return ui.HTML(m._repr_html_())
 
